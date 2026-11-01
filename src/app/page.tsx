@@ -34,7 +34,7 @@ export default function Home() {
           <p className="eyebrow">DIES PRODUCTION CONTROL SYSTEM</p>
           <h1>DPCS</h1>
         </div>
-        <span className="environment">PERSIAPAN SISTEM</span>
+        <a className="environment login-link" href="/login">LOGIN</a>
       </header>
 
       <section className="hero">
