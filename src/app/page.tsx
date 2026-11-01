@@ -113,7 +113,8 @@ export default function Home() {
                module.number === "04" ? <a className="module-status module-action" href="/qc">{module.status} →</a> :
                module.number === "05" ? <a className="module-status module-action" href="/repair">{module.status} →</a> :
                module.number === "06" ? <a className="module-status module-action" href="/machines">{module.status} →</a> :
-               module.number === "07" ? <a className="module-status module-action" href="/machine-utilization">{module.status} →</a> :\n               module.number === "08" ? <a className="module-status module-action" href="/overtime">{module.status} →</a> :
+               module.number === "07" ? <a className="module-status module-action" href="/machine-utilization">{module.status} →</a> :
+               module.number === "08" ? <a className="module-status module-action" href="/overtime">{module.status} →</a> :
                <span className="module-status">{module.status}</span>}
             </article>
           ))}
