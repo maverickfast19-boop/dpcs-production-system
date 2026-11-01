@@ -297,8 +297,7 @@ export default function QualityManager() {
         </section>
       )}
 
-      {reinspectionOrders.length > 0 && (
-        <section className="qc-alert-panel" aria-live="polite">
+      <section className="qc-alert-panel" aria-live="polite">
           <div className="qc-alert-heading">
             <span className="qc-alert-mark">↻</span>
             <div>
@@ -307,6 +306,9 @@ export default function QualityManager() {
             </div>
             <strong>{reinspectionOrders.length}</strong>
           </div>
+          {reinspectionOrders.length === 0 ? (
+            <p className="dashboard-empty">Belum ada unit yang menunggu QC ulang. Antrean akan terisi otomatis setelah pekerjaan perbaikan berstatus Completed.</p>
+          ) : (
           <div className="qc-alert-list">
             {reinspectionOrders.map((order) => {
               const unit = units.find((item) => item.id === order.die_unit_id);
@@ -327,8 +329,8 @@ export default function QualityManager() {
               );
             })}
           </div>
+          )}
         </section>
-      )}
 
       <div className="production-toolbar">
         <input
