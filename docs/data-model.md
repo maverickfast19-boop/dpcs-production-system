@@ -6,7 +6,7 @@
 
 ## 1. Confirmed business rules
 
-1. `Control Number` identifies a die design/type, not an individual physical unit.
+1. `Control Number` identifies a specific die design/model, not an individual physical unit. A similar die type requested by different customers may use different materials; material must therefore be recorded for each order line according to the customer's requirement and must not be assumed fixed for the general die type.
 2. One Control Number may be ordered in multiple units. Example: Control Number `26X0034A`, Qty `3` means three physical dies of the same design.
 3. `Qty` is the number of dies ordered, not the number of parts produced.
 4. `Price` is treated as unit price and `Total` is Qty multiplied by Price, based on the supplied sample.
@@ -39,11 +39,11 @@ One row per Control Number.
 | id | Internal primary key |
 | control_number | Unique business identifier, e.g. 26X0034A |
 | description | Die description |
-| material | Die material |
+| material | Default/reference material only, if applicable; the material required for each order is recorded on the order line |
 | active | Whether the model is active |
 | created_at, updated_at | System timestamps |
 
-Constraint: unique `control_number`.
+Constraint: unique `control_number`. Do not use the general die type/description alone to merge different Control Numbers.
 
 ### 3.2 `customers`
 
@@ -103,7 +103,7 @@ One order line connects an order to a die model and its ordered quantity.
 | description_snapshot | Description at order time |
 | material_snapshot | Material at order time |
 
-Validation: quantity is a positive integer; total must equal quantity × unit price. Snapshot fields preserve what was written on the order even if master data changes later.
+Validation: quantity is a positive integer; total must equal quantity × unit price. `material_snapshot` records the material specifically requested by the customer for that order line. The same general die type may therefore appear on different order lines with different materials. Snapshot fields preserve what was written on the order even if master data changes later.
 
 ### 3.6 `die_units` — Physical Unit Dies
 
