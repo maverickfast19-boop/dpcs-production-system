@@ -141,9 +141,28 @@ One row per approved specification revision under a Control Number.
 | effective_at | Date/time the revision becomes effective |
 | created_at | System timestamp |
 
-Rules: retain the same Control Number for a customer-requested specification change made while that order is in production. As soon as a change request is registered, DPCS must place the affected production work on hold until the Head of Production (Kepala Produksi) approves or rejects the request. The hold must prevent affected operations from being started or continued under an uncertain specification; unrelated orders and unaffected work may continue. The Head of Production must approve the change before the revised specification is applied on the shop floor. Create a new revision; never overwrite the old specification. Record the request, hold status and timestamps, approval/rejection decision, approver, and release from hold. Record which revision applies to each affected order line, physical unit, and subsequent Workcard operation so the factory can distinguish work completed before and after the change.
+Rules: retain the same Control Number for a customer-requested specification change made while that order is in production. As soon as a change request is registered, DPCS must place the affected production work on hold until the Head of Production (Kepala Produksi) approves or rejects the request, and automatically send an urgent notification to the Head of Production. The notification must identify the Control Number, affected order/units and operations, change summary, requester, request time, and HOLD status. Record notification recipient, channel, sent time, delivery status, and read/acknowledgement time when supported; retry or flag failed delivery so the alert is not silently lost. The hold must prevent affected operations from being started or continued under an uncertain specification; unrelated orders and unaffected work may continue. The Head of Production must approve the change before the revised specification is applied on the shop floor. Create a new revision; never overwrite the old specification. Record the request, hold status and timestamps, approval/rejection decision, approver, and release from hold. Record which revision applies to each affected order line, physical unit, and subsequent Workcard operation so the factory can distinguish work completed before and after the change.
 
-### 3.8 Operational history tables (next design iteration)
+### 3.8 `notifications` — System notifications
+
+Record important workflow alerts, including specification-change requests that put production on hold.
+
+| Field | Meaning |
+|---|---|
+| id | Internal primary key |
+| recipient_user_id | Intended recipient; for specification changes, the Head of Production |
+| event_type | Alert category, e.g. `specification_change_hold` |
+| related_entity_type / related_entity_id | Related Control Number, request, order, or production work |
+| message / payload | Human-readable alert and relevant context |
+| channel | Configured delivery channel, e.g. in-app, email, or push when available |
+| sent_at | Time notification was sent/attempted |
+| delivery_status | pending, sent, delivered, failed, or acknowledged as supported by the channel |
+| read_at / acknowledged_at | Time recipient read or acknowledged the alert, when supported |
+| created_at | System timestamp |
+
+A specification-change HOLD alert is high priority and must be generated automatically when the request is registered. Notification failure must be visible to authorized users and must not release the production hold.
+
+### 3.9 Operational history tables (next design iteration)
 
 These will reference `die_units.id` so events are recorded against the exact physical unit:
 - `die_usage_transactions`
