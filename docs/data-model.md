@@ -162,8 +162,9 @@ Detailed fields and approval flows should be designed after the factory's real w
    - If repair is feasible, record a repair activity for that unit. After repair is completed, the unit must go through QC again, with a new QC result record.
    - If repair is not feasible, record the unit as permanently rejected/scrapped according to the factory's final disposition.
 8. Preserve the full event history for each physical unit, including the reporting operator, unit identity, Workcard operation, completion timestamp, QC result, and any repair activity. A later QC result must not overwrite an earlier result.
+9. The Head of Production (Kepala Produksi) decides whether a rejected unit is feasible to repair or must be permanently rejected/scrapped. DPCS must record this decision, the decision-maker, and the timestamp.
 
-**Important distinction:** QC completion and its individual `good`/`reject` result are required operational records in DPCS. A `reject` result does not automatically mean repair; the decision depends on whether repair is feasible.
+**Important distinction:** QC completion and its individual `good`/`reject` result are required operational records in DPCS. A `reject` result does not automatically mean repair; the Head of Production decides whether repair is feasible or the unit must be permanently rejected.
 
 ## 5. Sample interpretation
 
