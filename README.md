@@ -22,6 +22,7 @@ The detailed workflow and data definitions must be validated with factory stakeh
 
 - [Requirements and discovery checklist](docs/requirements.md)
 - [Provisional system architecture](docs/architecture.md)
+- [Draft data model based on Order Manajemen](docs/data-model.md)
 - [90-day implementation roadmap](docs/roadmap-90-days.md)
 
 ## Delivery principles
