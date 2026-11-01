@@ -30,7 +30,6 @@ const processes: { code: ProcessCode; label: string; detail: string }[] = [
   { code: "assembly", label: "Assembly", detail: "Perakitan komponen dies" },
   { code: "fitting", label: "Fitting", detail: "Penyesuaian dan pemeriksaan kesesuaian" },
   { code: "trial", label: "Trial", detail: "Uji coba fungsi dies" },
-  { code: "qc", label: "QC", detail: "Pemeriksaan kualitas akhir" },
 ];
 const statusLabels: Record<StepStatus, string> = {
   pending: "Belum dimulai",
