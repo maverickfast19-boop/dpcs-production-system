@@ -116,7 +116,7 @@ One row per physical die unit, not one row per Control Number.
 | order_line_id | Order line that created/received this unit, when known |
 | unit_sequence | Sequence within the same model, e.g. 1, 2, 3; corresponds to the number after `#` |
 | physical_unit_code | Exact identity written manually on the die after manufacture, e.g. `26X0043 #1`; remains empty until marked and then entered/confirmed by the user |
-| status | ordered/planned, manufactured, waiting_qc, qc_failed, qc_passed/available, in_use, maintenance, scrapped (final statuses to validate) |
+| status | ordered/planned, manufactured, available, in_use, maintenance, scrapped (final statuses to validate) |
 | location | Current storage/machine location, when known |
 | created_at, updated_at | System timestamps |
 
@@ -126,7 +126,7 @@ Constraint: `physical_unit_code` must be unique. Preserve the exact factory mark
 
 These will reference `die_units.id` so events are recorded against the exact physical unit:
 - `die_usage_transactions`
-- `die_inspections` and `die_inspection_items` (record QC results; QC pass is required before release)
+- `die_inspections` and `die_inspection_items` (optional inspection records, if the factory later requires them)
 - `maintenance_work_orders`
 - `repair_records`
 - `downtime_events`
@@ -147,8 +147,7 @@ Detailed fields and approval flows should be designed after the factory's real w
 7. Detect possible duplicate imports using file/batch metadata and row-level comparison; ask for review rather than silently duplicating.
 8. After user confirmation, save the batch, orders, and order lines.
 9. Immediately create one physical-unit record per ordered quantity when the order is entered. Each record starts with status `ordered`/`planned`, not received or available. Leave `physical_unit_code` empty until the die is manufactured and the factory marking (for example, `26X0043 #1`) is written; then enter the exact marking in DPCS.
-10. After manufacture and marking, record the unit as `waiting_qc` and create a QC inspection record. Only a passed QC inspection may change the unit to `qc_passed`/`available`. If QC fails, record the defects and keep the unit blocked from production until corrective work and a passing re-inspection are recorded.
-11. Show import results: accepted rows, rejected rows, duplicate warnings, total quantity, and total value.
+10. Show import results: accepted rows, rejected rows, duplicate warnings, total quantity, and total value.
 
 ## 5. Sample interpretation
 
