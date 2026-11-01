@@ -1,7 +1,7 @@
 create table if not exists public.die_unit_process_steps (
   id uuid primary key default gen_random_uuid(),
   die_unit_id uuid not null references public.die_units(id) on delete cascade,
-  process_code text not null check (process_code in ('machining','assembly','fitting','trial','qc')),
+  process_code text not null check (process_code in ('machining','assembly','fitting','trial')),
   status text not null default 'pending' check (status in ('pending','in_progress','completed','hold')),
   operator_name text,
   machine_name text,
