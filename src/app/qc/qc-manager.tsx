@@ -53,6 +53,7 @@ export default function QualityManager() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [isHeadOfProduction, setIsHeadOfProduction] = useState(false);
+  const [roleStatus, setRoleStatus] = useState<"checking" | "head" | "operator" | "error">("checking");
   const [decisionSaving, setDecisionSaving] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -77,7 +78,14 @@ export default function QualityManager() {
       setModels((modelResult.data ?? []) as Model[]);
       setInspections((inspectionResult.data ?? []) as Inspection[]);
       const roleResult = await db.rpc("is_head_of_production");
-      setIsHeadOfProduction(roleResult.error ? false : roleResult.data === true);
+      if (roleResult.error) {
+        setIsHeadOfProduction(false);
+        setRoleStatus("error");
+      } else {
+        const isHead = roleResult.data === true;
+        setIsHeadOfProduction(isHead);
+        setRoleStatus(isHead ? "head" : "operator");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data Quality Control gagal dimuat.");
     } finally {
@@ -201,6 +209,16 @@ export default function QualityManager() {
           Pemeriksaan ulang tidak menimpa hasil sebelumnya.
         </p>
       </section>
+
+      <div className="notice notice-info" role="status">
+        {roleStatus === "checking"
+          ? "Sedang memeriksa hak akses akun..."
+          : roleStatus === "head"
+            ? "Akses Kepala Produksi aktif — akun ini berwenang memutuskan REPAIR atau SCRAP untuk hasil QC REJECT."
+            : roleStatus === "operator"
+              ? "Akses operator QC — keputusan REPAIR atau SCRAP hanya dapat dilakukan oleh Kepala Produksi."
+              : "Hak akses belum dapat diverifikasi. Periksa koneksi lalu tekan Muat ulang."}
+      </div>
 
       <section className="qc-summary">
         <article><span>Total unit dies</span><strong>{units.length}</strong></article>
