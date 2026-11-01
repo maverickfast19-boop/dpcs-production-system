@@ -21,6 +21,22 @@ type Machine = {
   dpcs_machine_types: { machine_type: string } | null;
 };
 
+type DieUnit = {
+  id: string;
+  unit_sequence: number;
+  physical_unit_code: string | null;
+  die_model_id: string;
+  die_models: { control_number: string; description: string } | null;
+};
+
+type Assignment = {
+  id: string;
+  machine_id: string;
+  die_unit_id: string;
+  process_code: string;
+  assigned_at: string;
+};
+
 const statusLabels: Record<Machine["machine_status"], string> = {
   unverified: "Belum diverifikasi",
   available: "Tersedia",
@@ -29,14 +45,29 @@ const statusLabels: Record<Machine["machine_status"], string> = {
   inactive: "Tidak aktif",
 };
 
+const processLabels: Record<string, string> = {
+  machining: "Machining",
+  assembly: "Assembly",
+  fitting: "Fitting",
+  trial: "Trial",
+};
+
 function number(value: number) {
   return new Intl.NumberFormat("id-ID").format(value);
+}
+
+function dateTime(value: string) {
+  return new Date(value).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default function MachineManager() {
   const [items, setItems] = useState<MachineType[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
+  const [units, setUnits] = useState<DieUnit[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [counts, setCounts] = useState<Record<string, string>>({});
+  const [selectedUnits, setSelectedUnits] = useState<Record<string, string>>({});
+  const [selectedProcesses, setSelectedProcesses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -47,20 +78,28 @@ export default function MachineManager() {
     setError("");
     try {
       const db = createClient();
-      const [{ data, error: loadError }, { data: machineData, error: machineError }] = await Promise.all([
+      const [typeResult, machineResult, unitResult, assignmentResult] = await Promise.all([
         db.from("dpcs_machine_types")
           .select("id,machine_type,machine_count,process_group,notes,is_active")
           .order("machine_type"),
         db.from("dpcs_machines")
           .select("id,machine_code,machine_status,machine_type_id,dpcs_machine_types(machine_type)")
           .order("machine_code"),
+        db.from("die_units")
+          .select("id,unit_sequence,physical_unit_code,die_model_id,die_models(control_number,description)")
+          .order("created_at", { ascending: false }),
+        db.from("dpcs_machine_assignments")
+          .select("id,machine_id,die_unit_id,process_code,assigned_at")
+          .is("released_at", null),
       ]);
-      if (loadError) throw loadError;
-      if (machineError) throw machineError;
-      const rows = (data ?? []) as MachineType[];
-      setItems(rows);
-      setMachines((machineData ?? []) as unknown as Machine[]);
-      setCounts(Object.fromEntries(rows.map((item) => [item.id, String(item.machine_count)])));
+      const failed = [typeResult, machineResult, unitResult, assignmentResult].find((result) => result.error);
+      if (failed?.error) throw failed.error;
+      const typeRows = (typeResult.data ?? []) as MachineType[];
+      setItems(typeRows);
+      setMachines((machineResult.data ?? []) as unknown as Machine[]);
+      setUnits((unitResult.data ?? []) as unknown as DieUnit[]);
+      setAssignments((assignmentResult.data ?? []) as Assignment[]);
+      setCounts(Object.fromEntries(typeRows.map((item) => [item.id, String(item.machine_count)])));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data mesin gagal dimuat.");
     } finally {
@@ -75,6 +114,8 @@ export default function MachineManager() {
     [items],
   );
   const verifiedCount = machines.filter((machine) => machine.machine_status !== "unverified").length;
+  const unitMap = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
+  const assignmentByMachine = useMemo(() => new Map(assignments.map((assignment) => [assignment.machine_id, assignment])), [assignments]);
 
   async function saveCount(item: MachineType) {
     const value = Number(counts[item.id]);
@@ -120,6 +161,53 @@ export default function MachineManager() {
     }
   }
 
+  async function assignMachine(machine: Machine) {
+    const dieUnitId = selectedUnits[machine.id];
+    const processCode = selectedProcesses[machine.id] || "machining";
+    if (!dieUnitId) {
+      setError("Pilih unit dies terlebih dahulu.");
+      setNotice("");
+      return;
+    }
+    setSaving(machine.id);
+    setError("");
+    setNotice("");
+    try {
+      const db = createClient();
+      const { error: assignError } = await db.rpc("dpcs_assign_machine", {
+        p_machine_id: machine.id,
+        p_die_unit_id: dieUnitId,
+        p_process_code: processCode,
+      });
+      if (assignError) throw assignError;
+      setNotice(`Mesin ${machine.machine_code} berhasil ditugaskan.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Penugasan mesin gagal disimpan.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function releaseMachine(assignment: Assignment, machineCode: string) {
+    setSaving(assignment.machine_id);
+    setError("");
+    setNotice("");
+    try {
+      const db = createClient();
+      const { error: releaseError } = await db.rpc("dpcs_release_machine", {
+        p_assignment_id: assignment.id,
+      });
+      if (releaseError) throw releaseError;
+      setNotice(`Mesin ${machineCode} berhasil dilepas dan kembali tersedia.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Penugasan mesin gagal dilepas.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
   return (
     <main className="page-shell order-page production-page">
       <header className="topbar">
@@ -135,8 +223,9 @@ export default function MachineManager() {
         <p className="eyebrow">DATA FASILITAS PRODUKSI</p>
         <h2>Kenali kapasitas mesin yang tersedia.</h2>
         <p className="hero-copy">
-          Setiap unit mesin memiliki kode internal DPCS yang unik. Status awal perlu diverifikasi
-          oleh tim pabrik sebelum dipakai untuk pemantauan produksi.
+          Setiap unit mesin memiliki kode internal DPCS yang unik. Satu mesin hanya dapat
+          menangani satu unit dies pada satu waktu. Penugasan aktif harus dilepas sebelum
+          mesin menerima pekerjaan berikutnya.
         </p>
       </section>
 
@@ -163,18 +252,11 @@ export default function MachineManager() {
           <div className="qc-history">
             {items.map((item, index) => (
               <article className="qc-history-row" key={item.id}>
-                <div className="qc-history-title">
-                  <strong>{index + 1}. {item.machine_type}</strong>
-                </div>
+                <div className="qc-history-title"><strong>{index + 1}. {item.machine_type}</strong></div>
                 <div className="qc-fields">
                   <label>Jumlah unit mesin
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={counts[item.id] ?? ""}
-                      onChange={(event) => setCounts((current) => ({ ...current, [item.id]: event.target.value }))}
-                    />
+                    <input type="number" min="0" step="1" value={counts[item.id] ?? ""}
+                      onChange={(event) => setCounts((current) => ({ ...current, [item.id]: event.target.value }))} />
                   </label>
                   <button type="button" disabled={saving === item.id} onClick={() => void saveCount(item)}>
                     {saving === item.id ? "Menyimpan..." : "Simpan jumlah"}
@@ -188,45 +270,91 @@ export default function MachineManager() {
 
       <div className="production-toolbar">
         <strong>Identitas mesin individual ({number(machines.length)} unit)</strong>
-        <span>Ubah status setelah pengecekan fisik</span>
+        <span>Verifikasi kondisi fisik sebelum mengubah status</span>
       </div>
 
       {loading ? (
         <div className="dashboard-message">Memuat identitas mesin...</div>
       ) : machines.length === 0 ? (
-        <div className="dashboard-message">Identitas mesin belum tersedia. Pastikan migrasi identitas mesin sudah dijalankan.</div>
+        <div className="dashboard-message">Identitas mesin belum tersedia.</div>
       ) : (
         <section className="qc-unit-panel">
           <div className="qc-history">
-            {machines.map((machine) => (
-              <article className="qc-history-row" key={machine.id}>
-                <div className="qc-history-title">
-                  <strong>{machine.machine_code}</strong>
-                  <span>{machine.dpcs_machine_types?.machine_type ?? "Jenis mesin tidak ditemukan"}</span>
-                </div>
-                <div className="qc-fields">
-                  <label>Status mesin
-                    <select
-                      value={machine.machine_status}
-                      disabled={saving === machine.id}
-                      onChange={(event) => void saveMachineStatus(machine, event.target.value as Machine["machine_status"])}
-                    >
-                      {Object.entries(statusLabels).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </article>
-            ))}
+            {machines.map((machine) => {
+              const activeAssignment = assignmentByMachine.get(machine.id);
+              const assignedUnit = activeAssignment ? unitMap.get(activeAssignment.die_unit_id) : null;
+              const unitLabel = assignedUnit
+                ? `${assignedUnit.die_models?.control_number ?? "Tanpa Control Number"} · ${assignedUnit.physical_unit_code || `Unit #${assignedUnit.unit_sequence}`}`
+                : "";
+              return (
+                <article className="qc-history-row" key={machine.id}>
+                  <div className="qc-history-title">
+                    <strong>{machine.machine_code}</strong>
+                    <span>{machine.dpcs_machine_types?.machine_type ?? "Jenis mesin tidak ditemukan"}</span>
+                  </div>
+                  <div className="qc-fields">
+                    <label>Status mesin
+                      <select value={machine.machine_status} disabled={saving === machine.id || Boolean(activeAssignment)}
+                        onChange={(event) => void saveMachineStatus(machine, event.target.value as Machine["machine_status"])}>
+                        {Object.entries(statusLabels).filter(([value]) => value !== "in_use").map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                        {machine.machine_status === "in_use" && <option value="in_use">Sedang digunakan</option>}
+                      </select>
+                    </label>
+                  </div>
+                  {activeAssignment ? (
+                    <div className="notice notice-info">
+                      <strong>Penugasan aktif:</strong> {unitLabel} · {processLabels[activeAssignment.process_code] ?? activeAssignment.process_code}
+                      <p>Mulai: {dateTime(activeAssignment.assigned_at)}</p>
+                      <button type="button" disabled={saving === machine.id}
+                        onClick={() => void releaseMachine(activeAssignment, machine.machine_code)}>
+                        {saving === machine.id ? "Memproses..." : "Lepas mesin"}
+                      </button>
+                    </div>
+                  ) : machine.machine_status === "available" ? (
+                    <div className="qc-fields">
+                      <label>Unit dies
+                        <select value={selectedUnits[machine.id] ?? ""}
+                          onChange={(event) => setSelectedUnits((current) => ({ ...current, [machine.id]: event.target.value }))}>
+                          <option value="">Pilih unit dies</option>
+                          {units.map((unit) => (
+                            <option key={unit.id} value={unit.id}>
+                              {(unit.die_models?.control_number ?? "Tanpa Control Number") + " · " +
+                                (unit.physical_unit_code || `Unit #${unit.unit_sequence}`) +
+                                (unit.die_models?.description ? " — " + unit.die_models.description : "")}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>Proses
+                        <select value={selectedProcesses[machine.id] ?? "machining"}
+                          onChange={(event) => setSelectedProcesses((current) => ({ ...current, [machine.id]: event.target.value }))}>
+                          <option value="machining">Machining</option>
+                          <option value="assembly">Assembly</option>
+                          <option value="fitting">Fitting</option>
+                          <option value="trial">Trial</option>
+                        </select>
+                      </label>
+                      <button type="button" disabled={saving === machine.id || units.length === 0}
+                        onClick={() => void assignMachine(machine)}>
+                        {saving === machine.id ? "Menugaskan..." : "Tugaskan dies"}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="hero-copy">Mesin harus berstatus Tersedia sebelum dapat menerima penugasan.</p>
+                  )}
+                </article>
+              );
+            })}
           </div>
         </section>
       )}
 
       <div className="notice notice-info">
-        Catatan: kode di atas adalah identitas internal DPCS. Status semua unit dimulai dari
-        Belum diverifikasi. Jika jumlah jenis mesin diubah, daftar identitas individual perlu
-        disesuaikan secara terpisah agar jumlahnya tetap akurat.
+        Kode mesin adalah identitas internal DPCS. Status awal Belum Diverifikasi. Saat ditugaskan,
+        status otomatis menjadi Sedang digunakan. Setelah dilepas, status otomatis kembali Tersedia.
+        Satu mesin tidak dapat memiliki dua penugasan aktif sekaligus.
       </div>
 
       <footer className="footer">
