@@ -149,6 +149,17 @@ Detailed fields and approval flows should be designed after the factory's real w
 9. Immediately create one physical-unit record per ordered quantity when the order is entered. Each record starts with status `ordered`/`planned`, not received or available. Leave `physical_unit_code` empty until the die is manufactured and the factory marking (for example, `26X0043 #1`) is written; then enter the exact marking in DPCS.
 10. Show import results: accepted rows, rejected rows, duplicate warnings, total quantity, and total value.
 
+
+## 4. Actual shop-floor workflow (confirmed by factory)
+
+1. Marketing prepares the Workcard and Control Number.
+2. The die is processed on the shop floor according to the operation sequence written on the Workcard.
+3. For Control Numbers with multiple physical units, the Polishing team normally writes the physical unit marking (for example, `26X0043 #1`, `26X0043 #2`).
+4. Polishing is usually the final operation before the die enters QC.
+5. DPCS may create the planned physical-unit records when the order is entered, but the physical marking must remain blank until Polishing writes it. The marking is then recorded against the correct unit in DPCS.
+
+**Important distinction:** QC exists in the factory's actual process after Polishing. The earlier decision was that DPCS should not impose a mandatory QC approval gate as a condition for making a die available. QC tracking requirements in DPCS remain to be clarified; do not assume QC is omitted from the factory workflow.
+
 ## 5. Sample interpretation
 
 | Control Number | Description | Material | Qty | Unit price | Total |
