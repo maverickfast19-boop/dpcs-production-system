@@ -6,7 +6,7 @@
 
 ## 1. Confirmed business rules
 
-1. `Control Number` identifies one specific die specification, not an individual physical unit. The specification includes the required material. If the same general die type is requested with a different material or another specification change, it must use a different Control Number. Multiple physical units built to the same Control Number share that specification.
+1. `Control Number` identifies a die model/order specification, not an individual physical unit. For a new order, different initial specifications (including different materials) require different Control Numbers. However, if the customer requests a specification change while production is already in progress, retain the same Control Number and create a new, separately traceable specification revision. Never overwrite the previous revision; preserve its values and change history. Multiple physical units under the order are linked to the applicable revision.
 2. One Control Number may be ordered in multiple units. Example: Control Number `26X0034A`, Qty `3` means three physical dies of the same design.
 3. `Qty` is the number of dies ordered, not the number of parts produced.
 4. `Price` is treated as unit price and `Total` is Qty multiplied by Price, based on the supplied sample.
@@ -39,11 +39,11 @@ One row per Control Number.
 | id | Internal primary key |
 | control_number | Unique business identifier, e.g. 26X0034A |
 | description | Die description |
-| material | Default/reference material only, if applicable; the material required for each order is recorded on the order line |
+| material | Current approved specification material; retain prior values in specification revision history |
 | active | Whether the model is active |
 | created_at, updated_at | System timestamps |
 
-Constraint: unique `control_number`. Do not use the general die type/description alone to merge different Control Numbers.
+Constraint: unique `control_number`. Do not use the general die type/description alone to merge different Control Numbers. A production-time customer specification change keeps the same Control Number but creates a new revision record.
 
 ### 3.2 `customers`
 
@@ -102,8 +102,9 @@ One order line connects an order to a die model and its ordered quantity.
 | total_price | Calculated quantity × unit price |
 | description_snapshot | Description at order time |
 | material_snapshot | Material at order time |
+| specification_revision_id | Specification revision applicable to this order line |
 
-Validation: quantity is a positive integer; total must equal quantity × unit price. `material_snapshot` records the material specified for that order line and must match the specification represented by its Control Number. A different material specification must be represented by a different Control Number. Snapshot fields preserve what was written on the order even if master data changes later.
+Validation: quantity is a positive integer; total must equal quantity × unit price. `material_snapshot` and `specification_revision_id` identify the exact specification applicable to the order line. For a new order with a different initial material/specification, use a different Control Number. If the customer changes the specification during production, keep the same Control Number and link the affected work/order line and units to the new revision. Snapshot fields preserve what was agreed at the time.
 
 ### 3.6 `die_units` — Physical Unit Dies
 
@@ -122,7 +123,27 @@ One row per physical die unit, not one row per Control Number.
 
 Constraint: `physical_unit_code` must be unique. Preserve the exact factory marking, including the `#` and unit number. Do not replace it with an automatically generated identifier. The Control Number remains the die model identity; the suffix (such as `#1`, `#2`) distinguishes each physical unit.
 
-### 3.7 Operational history tables (next design iteration)
+### 3.7 `die_specification_revisions` — Specification change history
+
+One row per approved specification revision under a Control Number.
+
+| Field | Meaning |
+|---|---|
+| id | Internal primary key / revision ID |
+| die_model_id | Control Number whose specification is being revised |
+| revision_number | Sequential revision, e.g. 1, 2, 3 |
+| change_request_date | Date the customer requested the change |
+| change_reason | Reason/details of the requested change |
+| previous_specification | Snapshot of the specification before the change |
+| revised_specification | Snapshot of the new specification, including material where changed |
+| recorded_by | User recording the change |
+| approved_by | Authorized person confirming the change, when applicable |
+| effective_at | Date/time the revision becomes effective |
+| created_at | System timestamp |
+
+Rules: retain the same Control Number for a customer-requested specification change made while that order is in production. Create a new revision; never overwrite the old specification. Record which revision applies to each affected order line, physical unit, and subsequent Workcard operation so the factory can distinguish work completed before and after the change.
+
+### 3.8 Operational history tables (next design iteration)
 
 These will reference `die_units.id` so events are recorded against the exact physical unit:
 - `die_usage_transactions`
@@ -178,11 +199,8 @@ The sample therefore represents two order lines and five physical dies in total.
 
 ## 6. Open decisions before implementation
 
-1. At what point should individual unit records be created: when the order is entered, when it is approved, or when the dies are received?
-2. Does the factory already mark the physical units with a serial/asset number, or should DPCS generate an internal unit code?
-3. Does the source Excel contain a separate PO number in another worksheet/file, or is `Tanggal PO` currently the only PO reference?
-4. Can the same Control Number have different descriptions/materials over time, or must those attributes remain fixed?
-5. What exact die statuses and locations are used in the factory?
+1. Does the source Excel contain a separate PO number in another worksheet/file, or is `Tanggal PO` currently the only PO reference?
+2. What exact die statuses and locations are used in the factory?
 
 ## 7. Important implementation note
 
