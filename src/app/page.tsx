@@ -22,9 +22,9 @@ const modules = [
   },
   {
     number: "04",
-    title: "Polishing & QC",
-    description: "Catat polishing, hasil QC per unit, dan keputusan repair.",
-    status: "Tahap berikutnya",
+    title: "Quality Control (QC)",
+    description: "Catat hasil GOOD/REJECT dan riwayat pemeriksaan setiap unit fisik.",
+    status: "Buka modul",
   },
 ];
 
@@ -86,6 +86,7 @@ export default function Home() {
               {module.number === "01" ? <a className="module-status module-action" href="/orders">{module.status} →</a> :
                module.number === "02" ? <a className="module-status module-action" href="/dies">{module.status} →</a> :
                module.number === "03" ? <a className="module-status module-action" href="/production">{module.status} →</a> :
+               module.number === "04" ? <a className="module-status module-action" href="/qc">{module.status} →</a> :
                <span className="module-status">{module.status}</span>}
             </article>
           ))}
