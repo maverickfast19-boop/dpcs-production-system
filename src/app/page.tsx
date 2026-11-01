@@ -12,18 +12,18 @@ const modules = [
     number: "02",
     title: "Control Number & Dies",
     description: "Kelola spesifikasi, revisi, dan unit fisik setiap dies.",
-    status: "Tahap berikutnya",
+    status: "Buka modul",
   },
   {
     number: "03",
-    title: "Workcard Produksi",
-    description: "Pantau urutan proses, departemen, dan mesin.",
-    status: "Tahap berikutnya",
+    title: "Production Monitoring",
+    description: "Pantau Workcard, proses, operator, mesin, dan status setiap unit dies.",
+    status: "Buka modul",
   },
   {
     number: "04",
     title: "Polishing & QC",
-    description: "Catat marking unit, hasil QC per unit, dan keputusan repair.",
+    description: "Catat polishing, hasil QC per unit, dan keputusan repair.",
     status: "Tahap berikutnya",
   },
 ];
@@ -83,7 +83,10 @@ export default function Home() {
               <span className="module-number">{module.number}</span>
               <h3>{module.title}</h3>
               <p>{module.description}</p>
-              {module.number === "01" ? <a className="module-status module-action" href="/orders">{module.status} →</a> : module.number === "02" ? <a className="module-status module-action" href="/dies">Buka modul →</a> : <span className="module-status">{module.status}</span>}
+              {module.number === "01" ? <a className="module-status module-action" href="/orders">{module.status} →</a> :
+               module.number === "02" ? <a className="module-status module-action" href="/dies">{module.status} →</a> :
+               module.number === "03" ? <a className="module-status module-action" href="/production">{module.status} →</a> :
+               <span className="module-status">{module.status}</span>}
             </article>
           ))}
         </div>
