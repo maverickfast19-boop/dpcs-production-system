@@ -121,7 +121,6 @@ export default function MachineManager() {
               <article className="qc-history-row" key={item.id}>
                 <div className="qc-history-title">
                   <strong>{index + 1}. {item.machine_type}</strong>
-                  <span>{item.process_group}</span>
                 </div>
                 <div className="qc-fields">
                   <label>Jumlah unit mesin
