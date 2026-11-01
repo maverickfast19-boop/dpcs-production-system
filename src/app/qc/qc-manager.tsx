@@ -52,6 +52,8 @@ export default function QualityManager() {
   const [saving, setSaving] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [isHeadOfProduction, setIsHeadOfProduction] = useState(false);
+  const [decisionSaving, setDecisionSaving] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,6 +76,8 @@ export default function QualityManager() {
       setUnits((unitResult.data ?? []) as Unit[]);
       setModels((modelResult.data ?? []) as Model[]);
       setInspections((inspectionResult.data ?? []) as Inspection[]);
+      const roleResult = await db.rpc("is_head_of_production");
+      setIsHeadOfProduction(roleResult.error ? false : roleResult.data === true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data Quality Control gagal dimuat.");
     } finally {
@@ -157,6 +161,27 @@ export default function QualityManager() {
     }
   }
 
+  async function saveDisposition(inspection: Inspection, decision: "repair" | "scrap") {
+    setDecisionSaving(inspection.id);
+    setError("");
+    setNotice("");
+    try {
+      const db = createClient();
+      const { error: decisionError } = await db.rpc("record_qc_disposition", {
+        p_inspection_id: inspection.id,
+        p_decision: decision,
+        p_notes: null,
+      });
+      if (decisionError) throw decisionError;
+      setNotice(`Keputusan ${decision.toUpperCase()} berhasil disimpan.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Keputusan QC gagal disimpan.");
+    } finally {
+      setDecisionSaving(null);
+    }
+  }
+
   return (
     <main className="page-shell order-page qc-page">
       <header className="topbar">
@@ -206,7 +231,21 @@ export default function QualityManager() {
                     <span>Waktu: {formatDate(inspection.created_at)}</span>
                     {inspection.findings && <span>Temuan: {inspection.findings}</span>}
                   </div>
-                  <em>Menunggu keputusan</em>
+                  {inspection.head_decision ? (
+                    <em>Keputusan: {inspection.head_decision.toUpperCase()} · {inspection.decision_by ?? "Kepala Produksi"}</em>
+                  ) : isHeadOfProduction ? (
+                    <div className="qc-decision-actions">
+                      <strong>Keputusan Kepala Produksi</strong>
+                      <button type="button" disabled={decisionSaving === inspection.id} onClick={() => void saveDisposition(inspection, "repair")}>
+                        {decisionSaving === inspection.id ? "Menyimpan..." : "REPAIR"}
+                      </button>
+                      <button type="button" disabled={decisionSaving === inspection.id} onClick={() => void saveDisposition(inspection, "scrap")}>
+                        {decisionSaving === inspection.id ? "Menyimpan..." : "SCRAP"}
+                      </button>
+                    </div>
+                  ) : (
+                    <em>Menunggu keputusan Kepala Produksi</em>
+                  )}
                 </article>
               );
             })}
