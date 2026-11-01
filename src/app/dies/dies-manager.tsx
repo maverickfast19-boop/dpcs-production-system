@@ -228,7 +228,7 @@ export default function DiesManager() {
               <div className="table-scroll"><table className="dies-table">
                 <thead><tr><th>Unit</th><th>Customer / Order</th><th>Marking fisik pabrik</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody>{modelUnits.map((unit) => {
-                  const line = lookup.lineMap.get(unit.order_line_id);
+                  const line = unit.order_line_id ? lookup.lineMap.get(unit.order_line_id) : undefined;
                   const order = line ? lookup.orderMap.get(line.die_order_id) : undefined;
                   return <tr key={unit.id}>
                     <td><strong>{model.control_number} #{unit.unit_sequence}</strong></td>
