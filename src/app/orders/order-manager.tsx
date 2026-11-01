@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, useMemo, useState } from "react";
+import Link from "next/link";
 import * as XLSX from "xlsx";
 
 type OrderRow = {
@@ -181,7 +182,7 @@ export default function OrderManager() {
   return (
     <main className="page-shell order-page">
       <header className="topbar">
-        <a className="back-link" href="/">← DPCS</a>
+        <Link className="back-link" href="/">← DPCS</Link>
         <div className="topbar-copy">
           <p className="eyebrow">MODUL 01</p>
           <h1>Order Manajemen</h1>
@@ -276,7 +277,7 @@ export default function OrderManager() {
 
       <footer className="footer">
         <span>DPCS · Dies Production Control System</span>
-        <a href="/">Kembali ke dashboard</a>
+        <Link href="/">Kembali ke dashboard</Link>
       </footer>
     </main>
   );
