@@ -1,6 +1,6 @@
 # DPCS Provisional Architecture
 
-**Status:** Technology-neutral proposal pending discovery and approval.
+**Status:** Initial implementation baseline selected; production deployment remains subject to validation. See [technology stack decision](technology-stack.md).
 
 ## 1. Architectural goals
 - Provide a simple interface for factory operations.
@@ -12,13 +12,13 @@
 ## 2. Logical components
 
 ### Presentation layer
-Web interface for authorized office and factory users. Responsive behavior should be evaluated against actual devices and shop-floor conditions.
+Responsive Next.js web interface for authorized office and factory users, accessible from desktop and mobile browsers over HTTPS.
 
 ### Application layer
 Business services for die master and status, production usage transactions, inspection, maintenance and repair, downtime/problem tracking, dashboard/reporting, user administration, and audit.
 
 ### Data layer
-A relational data store is the leading option because the core records have clear relationships and require transactional consistency. Final database selection is pending technical review.
+PostgreSQL managed through Supabase is the initial data platform. Database constraints, transactions, migrations, and Row Level Security will protect business-critical records and actions.
 
 ### Operations layer
 Deployment environment, configuration and secrets, monitoring, scheduled backups, restore procedures, and release management.
@@ -47,15 +47,13 @@ Final fields, relationships, and reference-code rules must be derived from valid
 6. Apply least-privilege access.
 7. Back up data and test restoration, not just backup creation.
 
-## 5. Decisions still open
-- Frontend and backend framework
-- Database engine
-- Hosting and network topology
-- Authentication method and user provisioning
-- Offline or poor-network behavior
-- Integration with production/ERP/MES systems
-- File and image storage
-- Backup frequency, retention, and recovery objectives
+## 5. Initial platform decisions and remaining validation
+- Application: Next.js + TypeScript.
+- Database and authentication: Supabase PostgreSQL + Supabase Auth.
+- Application hosting: Vercel for development and controlled pilot.
+- Interface: Indonesian-first responsive web application.
+- Still to validate: account ownership and billing, user provisioning, factory internet reliability, any country/network hosting policy, integration needs, file access policies, backup retention, and recovery objectives.
+- Offline operation is not included in the first release unless separately approved.
 
 ## 6. Initial deployment approach
 Start with a development environment, then a controlled user-acceptance/pilot environment. Production deployment should follow security review, backup/restore validation, approved user acceptance testing, and documented support ownership.
