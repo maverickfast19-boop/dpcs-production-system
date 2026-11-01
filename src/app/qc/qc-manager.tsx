@@ -232,7 +232,7 @@ export default function QualityManager() {
             <span className="qc-alert-mark">!</span>
             <div>
               <p className="eyebrow">PRIORITAS TINGGI</p>
-              <h3>Hasil QC REJECT – perlu keputusan Kepala Produksi</h3>
+              <h3>Pemantauan hasil QC REJECT dan keputusan Kepala Produksi</h3>
             </div>
             <strong>{rejectedInspections.length}</strong>
           </div>
