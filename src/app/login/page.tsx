@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -37,7 +38,7 @@ export default function LoginPage() {
           <p className="eyebrow">DIES PRODUCTION CONTROL SYSTEM</p>
           <h1>DPCS · Login Admin</h1>
         </div>
-        <a className="back-link" href="/">Beranda</a>
+        <Link className="back-link" href="/">Beranda</Link>
       </header>
 
       <section className="login-wrap">
