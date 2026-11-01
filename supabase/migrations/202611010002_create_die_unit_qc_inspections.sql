@@ -5,6 +5,10 @@ create table if not exists public.die_unit_qc_inspections (
   inspector_name text not null,
   findings text,
   notes text,
+  head_decision text check (head_decision in ('repair', 'scrap')),
+  decision_by text,
+  decision_notes text,
+  decision_at timestamptz,
   created_at timestamptz not null default now()
 );
 
