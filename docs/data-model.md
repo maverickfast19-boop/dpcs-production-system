@@ -114,8 +114,8 @@ One row per physical die unit, not one row per Control Number.
 | id | Internal primary key |
 | die_model_id | Parent die model / Control Number |
 | order_line_id | Order line that created/received this unit, when known |
-| unit_sequence | Sequence within the same model, e.g. 1, 2, 3 |
-| internal_unit_code | System-generated unique unit identifier |
+| unit_sequence | Sequence within the same model, e.g. 1, 2, 3; corresponds to the number after `#` |
+| physical_unit_code | Exact identity written manually on the die, e.g. `26X0043 #1`; entered/confirmed by the user |
 | status | Planned, received, available, in_use, maintenance, scrapped (final statuses to validate) |
 | location | Current storage/machine location, when known |
 | created_at, updated_at | System timestamps |
