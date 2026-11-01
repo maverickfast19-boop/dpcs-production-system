@@ -1,3 +1,5 @@
+import AdminMenu from "./admin-menu";
+
 const modules = [
   {
     number: "01",
@@ -34,7 +36,7 @@ export default function Home() {
           <p className="eyebrow">DIES PRODUCTION CONTROL SYSTEM</p>
           <h1>DPCS</h1>
         </div>
-        <a className="environment login-link" href="/login">LOGIN</a>
+        <AdminMenu />
       </header>
 
       <section className="hero">
