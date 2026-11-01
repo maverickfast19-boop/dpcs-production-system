@@ -50,8 +50,8 @@ export default function DiesManager() {
       setLines((results[2].data ?? []) as Line[]);
       setOrders((results[3].data ?? []) as Order[]);
       setCustomers((results[4].data ?? []) as Customer[]);
-      setMarkings(Object.fromEntries((results[1].data ?? []).map((u: any) => [u.id, u.physical_unit_code ?? ""])));
-      setStatuses(Object.fromEntries((results[1].data ?? []).map((u: any) => [u.id, u.status])));
+      setMarkings(Object.fromEntries((results[1].data ?? []).map((u: Unit) => [u.id, u.physical_unit_code ?? ""])));
+      setStatuses(Object.fromEntries((results[1].data ?? []).map((u: Unit) => [u.id, u.status])));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data Control Number dan dies gagal dimuat.");
     } finally { setLoading(false); }
