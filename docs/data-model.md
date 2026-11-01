@@ -137,11 +137,11 @@ One row per approved specification revision under a Control Number.
 | previous_specification | Snapshot of the specification before the change |
 | revised_specification | Snapshot of the new specification, including material where changed |
 | recorded_by | User recording the change |
-| approved_by | Authorized person confirming the change, when applicable |
+| approved_by | Head of Production (Kepala Produksi), the required approver for production-time specification changes |
 | effective_at | Date/time the revision becomes effective |
 | created_at | System timestamp |
 
-Rules: retain the same Control Number for a customer-requested specification change made while that order is in production. Create a new revision; never overwrite the old specification. Record which revision applies to each affected order line, physical unit, and subsequent Workcard operation so the factory can distinguish work completed before and after the change.
+Rules: retain the same Control Number for a customer-requested specification change made while that order is in production. The Head of Production (Kepala Produksi) must approve the change before it is applied on the shop floor. Create a new revision; never overwrite the old specification. Record the request, approval decision, approver, and timestamps. Record which revision applies to each affected order line, physical unit, and subsequent Workcard operation so the factory can distinguish work completed before and after the change.
 
 ### 3.8 Operational history tables (next design iteration)
 
