@@ -153,7 +153,7 @@ Detailed fields and approval flows should be designed after the factory's real w
 ## 4. Actual shop-floor workflow (confirmed by factory)
 
 1. Marketing prepares the Workcard and Control Number.
-2. The die is processed on the shop floor according to the operation sequence written on the Workcard.
+2. The die is processed through the departments/operations in sequence according to the Workcard. Actual scheduling and machine assignment may be adjusted based on machine availability, while preserving the required operation sequence and ensuring no required operation is skipped. DPCS should record the planned sequence, assigned machine (when applicable), and actual start/completion times for each operation.
 3. For Control Numbers with multiple physical units, the Polishing team normally writes the physical unit marking (for example, `26X0043 #1`, `26X0043 #2`).
 4. Polishing is usually the final operation before the die enters QC.
 5. The Polishing operator reports polishing completion in DPCS and records the exact physical marking against the correct planned unit. The marking remains blank until it is physically written on the die.
