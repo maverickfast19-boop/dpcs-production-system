@@ -3,7 +3,7 @@ const modules = [
     number: "01",
     title: "Order Manajemen",
     description: "Impor dan pantau order bulanan dari Excel.",
-    status: "Tahap berikutnya",
+    status: "Buka modul",
   },
   {
     number: "02",
@@ -78,7 +78,7 @@ export default function Home() {
               <span className="module-number">{module.number}</span>
               <h3>{module.title}</h3>
               <p>{module.description}</p>
-              <span className="module-status">{module.status}</span>
+              {module.number === "01" ? <a className="module-status module-action" href="/orders">{module.status} →</a> : <span className="module-status">{module.status}</span>}
             </article>
           ))}
         </div>
