@@ -182,7 +182,7 @@ export default function DashboardOverview() {
             </div>
             {units.length ? (
               <div className="status-chip-list">
-                {Object.entries(summary.unitStatus).map(([status, count]) => (
+                {[...summary.unitStatus.entries()].map(([status, count]) => (
                   <div className="status-chip" key={status}>
                     <span>{statusLabels[status] ?? status}</span><strong>{number(count)}</strong>
                   </div>
