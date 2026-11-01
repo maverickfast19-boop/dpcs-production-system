@@ -233,7 +233,7 @@ export default function OrderManager() {
         <p className="hero-copy">
           Unggah file Excel Order Manajemen. DPCS akan membaca worksheet pertama,
           memeriksa kolom wajib, menghitung nilai order, dan menampilkan unit dies
-          yang akan dibuat. File diproses di browser dan belum dikirim ke database.
+          yang akan dibuat. Setelah diperiksa, baris yang valid dapat disimpan ke database.
         </p>
       </section>
 
