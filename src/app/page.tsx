@@ -83,7 +83,7 @@ export default function Home() {
               <span className="module-number">{module.number}</span>
               <h3>{module.title}</h3>
               <p>{module.description}</p>
-              {module.number === "01" ? <a className="module-status module-action" href="/orders">{module.status} →</a> : <span className="module-status">{module.status}</span>}
+              {module.number === "01" ? <a className="module-status module-action" href="/orders">{module.status} →</a> : module.number === "02" ? <a className="module-status module-action" href="/dies">Buka modul →</a> : <span className="module-status">{module.status}</span>}
             </article>
           ))}
         </div>
