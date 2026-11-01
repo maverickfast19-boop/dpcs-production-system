@@ -141,7 +141,7 @@ One row per approved specification revision under a Control Number.
 | effective_at | Date/time the revision becomes effective |
 | created_at | System timestamp |
 
-Rules: retain the same Control Number for a customer-requested specification change made while that order is in production. The Head of Production (Kepala Produksi) must approve the change before it is applied on the shop floor. Create a new revision; never overwrite the old specification. Record the request, approval decision, approver, and timestamps. Record which revision applies to each affected order line, physical unit, and subsequent Workcard operation so the factory can distinguish work completed before and after the change.
+Rules: retain the same Control Number for a customer-requested specification change made while that order is in production. As soon as a change request is registered, DPCS must place the affected production work on hold until the Head of Production (Kepala Produksi) approves or rejects the request. The hold must prevent affected operations from being started or continued under an uncertain specification; unrelated orders and unaffected work may continue. The Head of Production must approve the change before the revised specification is applied on the shop floor. Create a new revision; never overwrite the old specification. Record the request, hold status and timestamps, approval/rejection decision, approver, and release from hold. Record which revision applies to each affected order line, physical unit, and subsequent Workcard operation so the factory can distinguish work completed before and after the change.
 
 ### 3.8 Operational history tables (next design iteration)
 
