@@ -394,3 +394,24 @@ body {
   .qc-alert-item { flex-direction:column; }
   .qc-alert-item em { white-space:normal; }
 }
+
+
+/* Manual Control Number and physical die registration */
+.dies-admin-actions { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
+.dies-admin-actions button, .dies-form-grid button { border:0; border-radius:9px; padding:11px 15px; background:var(--accent); color:#09221f; font-weight:800; cursor:pointer; }
+.dies-admin-actions button:disabled, .dies-form-grid button:disabled { opacity:.55; cursor:not-allowed; }
+.dies-form-panel { margin:14px 0; padding:18px; border:1px solid #36566a; border-radius:14px; background:var(--panel); }
+.dies-form-panel h3 { margin:0 0 7px; font-size:17px; }
+.dies-form-panel > p { margin:0 0 15px; color:var(--muted); font-size:12px; line-height:1.5; }
+.dies-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.dies-form-grid label { display:flex; flex-direction:column; gap:6px; color:var(--muted); font-size:11px; }
+.dies-form-grid input, .dies-form-grid select { width:100%; min-width:0; padding:11px 12px; border:1px solid var(--panel-border); border-radius:9px; background:#0b1220; color:var(--text); font:inherit; }
+.dies-form-grid .dies-form-wide { grid-column:1 / -1; }
+.dies-form-grid button { justify-self:start; }
+@media(max-width:650px) {
+ .dies-admin-actions { flex-direction:column; }
+ .dies-admin-actions button { width:100%; }
+ .dies-form-grid { grid-template-columns:1fr; }
+ .dies-form-grid .dies-form-wide { grid-column:auto; }
+ .dies-form-grid button { width:100%; }
+}
