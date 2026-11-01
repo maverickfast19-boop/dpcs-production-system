@@ -27,6 +27,13 @@ type Inspection = {
   created_at: string;
 };
 type Draft = { result: Result; inspector_name: string; findings: string; notes: string };
+type ReinspectionOrder = {
+  id: string;
+  die_unit_id: string;
+  qc_inspection_id: string;
+  completed_at: string | null;
+  reinspection_qc_inspection_id: string | null;
+};
 
 const emptyDraft = (): Draft => ({
   result: "good",
@@ -46,6 +53,8 @@ export default function QualityManager() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [models, setModels] = useState<Model[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [reinspectionOrders, setReinspectionOrders] = useState<ReinspectionOrder[]>([]);
+  const [selectedRepairOrderId, setSelectedRepairOrderId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -61,7 +70,7 @@ export default function QualityManager() {
     setError("");
     try {
       const db = createClient();
-      const [unitResult, modelResult, inspectionResult] = await Promise.all([
+      const [unitResult, modelResult, inspectionResult, repairResult] = await Promise.all([
         db.from("die_units")
           .select("id,die_model_id,unit_sequence,physical_unit_code,status")
           .order("created_at", { ascending: false }),
@@ -71,12 +80,18 @@ export default function QualityManager() {
         db.from("die_unit_qc_inspections")
           .select("id,die_unit_id,result,inspector_name,findings,notes,head_decision,decision_by,decision_notes,decision_at,created_at")
           .order("created_at", { ascending: false }),
+        db.from("die_unit_repair_work_orders")
+          .select("id,die_unit_id,qc_inspection_id,completed_at,reinspection_qc_inspection_id")
+          .eq("status", "completed")
+          .is("reinspection_qc_inspection_id", null)
+          .order("completed_at", { ascending: false }),
       ]);
-      const failed = [unitResult, modelResult, inspectionResult].find((item) => item.error);
+      const failed = [unitResult, modelResult, inspectionResult, repairResult].find((item) => item.error);
       if (failed?.error) throw failed.error;
       setUnits((unitResult.data ?? []) as Unit[]);
       setModels((modelResult.data ?? []) as Model[]);
       setInspections((inspectionResult.data ?? []) as Inspection[]);
+      setReinspectionOrders((repairResult.data ?? []) as ReinspectionOrder[]);
       const roleResult = await db.rpc("is_head_of_production");
       if (roleResult.error) {
         setIsHeadOfProduction(false);
@@ -129,7 +144,7 @@ export default function QualityManager() {
     }));
   }
 
-  async function saveInspection(unit: Unit) {
+  async function saveInspection(unit: Unit, repairOrderId?: string) {
     const draft = drafts[unit.id] ?? emptyDraft();
     if (!draft.inspector_name.trim()) {
       setError("Nama operator QC wajib diisi.");
@@ -147,19 +162,30 @@ export default function QualityManager() {
     setNotice("");
     try {
       const db = createClient();
-      const { error: saveError } = await db.from("die_unit_qc_inspections").insert({
+      const { data: savedInspection, error: saveError } = await db.from("die_unit_qc_inspections").insert({
         die_unit_id: unit.id,
         result: draft.result,
         inspector_name: draft.inspector_name.trim(),
         findings: draft.findings.trim() || null,
         notes: draft.notes.trim() || null,
-      });
+      }).select("id").single();
       if (saveError) throw saveError;
+      if (repairOrderId) {
+        const { error: queueError } = await db.from("die_unit_repair_work_orders")
+          .update({ reinspection_qc_inspection_id: savedInspection.id, updated_at: new Date().toISOString() })
+          .eq("id", repairOrderId)
+          .eq("die_unit_id", unit.id)
+          .is("reinspection_qc_inspection_id", null);
+        if (queueError) throw queueError;
+      }
+      setSelectedRepairOrderId(null);
       setDrafts((current) => ({ ...current, [unit.id]: emptyDraft() }));
       setNotice(
-        draft.result === "reject"
-          ? "Hasil REJECT berhasil dicatat. Notifikasi prioritas tinggi muncul untuk menunggu keputusan Kepala Produksi."
-          : "Hasil QC GOOD berhasil dicatat.",
+        repairOrderId
+          ? `Hasil QC ulang berhasil dicatat sebagai ${draft.result.toUpperCase()}. Riwayat perbaikan ini telah ditutup dari antrean QC ulang.`
+          : draft.result === "reject"
+            ? "Hasil REJECT berhasil dicatat. Notifikasi prioritas tinggi muncul untuk menunggu keputusan Kepala Produksi."
+            : "Hasil QC GOOD berhasil dicatat.",
       );
       await load();
     } catch (e) {
@@ -271,6 +297,39 @@ export default function QualityManager() {
         </section>
       )}
 
+      {reinspectionOrders.length > 0 && (
+        <section className="qc-alert-panel" aria-live="polite">
+          <div className="qc-alert-heading">
+            <span className="qc-alert-mark">↻</span>
+            <div>
+              <p className="eyebrow">ANTREAN QC ULANG</p>
+              <h3>Unit selesai diperbaiki dan menunggu pemeriksaan ulang</h3>
+            </div>
+            <strong>{reinspectionOrders.length}</strong>
+          </div>
+          <div className="qc-alert-list">
+            {reinspectionOrders.map((order) => {
+              const unit = units.find((item) => item.id === order.die_unit_id);
+              const model = unit ? modelMap.get(unit.die_model_id) : undefined;
+              return (
+                <article className="qc-alert-item" key={order.id}>
+                  <div>
+                    <strong>Control Number: {model?.control_number ?? "—"}</strong>
+                    <span>Unit: {unit?.physical_unit_code || (unit ? `Unit #${unit.unit_sequence}` : "Unit tidak ditemukan")}</span>
+                    <span>Perbaikan selesai: {order.completed_at ? formatDate(order.completed_at) : "Waktu belum tersedia"}</span>
+                    <em>Menunggu QC ulang</em>
+                  </div>
+                  <button type="button" disabled={!unit} onClick={() => {
+                    setSelectedRepairOrderId(order.id);
+                    document.getElementById(`qc-unit-${order.die_unit_id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}>Periksa ulang</button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="production-toolbar">
         <input
           aria-label="Cari unit dies"
@@ -294,7 +353,7 @@ export default function QualityManager() {
         const draft = drafts[unit.id] ?? emptyDraft();
         const history = historyByUnit[unit.id] ?? [];
         return (
-          <section className="qc-unit-panel" key={unit.id}>
+          <section className="qc-unit-panel" id={`qc-unit-${unit.id}`} key={unit.id}>
             <div className="qc-unit-heading">
               <div>
                 <p className="eyebrow">CONTROL NUMBER · {model?.control_number ?? "—"}</p>
@@ -305,7 +364,7 @@ export default function QualityManager() {
             </div>
 
             <div className="qc-entry-card">
-              <h4>Catat hasil pemeriksaan baru</h4>
+              <h4>{selectedRepairOrderId && reinspectionOrders.some((item) => item.id === selectedRepairOrderId && item.die_unit_id === unit.id) ? "Catat hasil QC ulang setelah perbaikan" : "Catat hasil pemeriksaan baru"}</h4>
               <div className="qc-fields">
                 <label>Operator QC
                   <input
@@ -344,9 +403,9 @@ export default function QualityManager() {
                 className="qc-save-button"
                 type="button"
                 disabled={saving === unit.id}
-                onClick={() => void saveInspection(unit)}
+                onClick={() => void saveInspection(unit, selectedRepairOrderId && reinspectionOrders.some((item) => item.id === selectedRepairOrderId && item.die_unit_id === unit.id) ? selectedRepairOrderId : undefined)}
               >
-                {saving === unit.id ? "Menyimpan..." : "Simpan hasil QC"}
+                {saving === unit.id ? "Menyimpan..." : selectedRepairOrderId && reinspectionOrders.some((item) => item.id === selectedRepairOrderId && item.die_unit_id === unit.id) ? "Simpan hasil QC ulang" : "Simpan hasil QC"}
               </button>
             </div>
 
