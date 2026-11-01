@@ -77,7 +77,7 @@ function parseWorkbook(data: ArrayBuffer): OrderRow[] {
     unitPrice: find("price", "unitprice", "hargasatuan"),
     total: find("total", "totalprice"),
   };
-  const required = [
+  const required: Array<[string, number]> = [
     ["Tanggal PO", columns.poDate],
     ["Due date Delivery", columns.dueDate],
     ["Control Number", columns.controlNumber],
