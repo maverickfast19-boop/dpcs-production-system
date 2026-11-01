@@ -156,9 +156,14 @@ Detailed fields and approval flows should be designed after the factory's real w
 2. The die is processed on the shop floor according to the operation sequence written on the Workcard.
 3. For Control Numbers with multiple physical units, the Polishing team normally writes the physical unit marking (for example, `26X0043 #1`, `26X0043 #2`).
 4. Polishing is usually the final operation before the die enters QC.
-5. DPCS may create the planned physical-unit records when the order is entered, but the physical marking must remain blank until Polishing writes it. The marking is then recorded against the correct unit in DPCS.
+5. The Polishing operator reports polishing completion in DPCS and records the exact physical marking against the correct planned unit. The marking remains blank until it is physically written on the die.
+6. The QC operator reports QC completion and records an individual result for each physical unit: `good` or `reject`. Never combine the QC result for multiple units into one record.
+7. If a unit receives `reject`, repair is conditional:
+   - If repair is feasible, record a repair activity for that unit. After repair is completed, the unit must go through QC again, with a new QC result record.
+   - If repair is not feasible, record the unit as permanently rejected/scrapped according to the factory's final disposition.
+8. Preserve the full event history for each physical unit, including the reporting operator, unit identity, Workcard operation, completion timestamp, QC result, and any repair activity. A later QC result must not overwrite an earlier result.
 
-**Important distinction:** QC exists in the factory's actual process after Polishing. The earlier decision was that DPCS should not impose a mandatory QC approval gate as a condition for making a die available. QC tracking requirements in DPCS remain to be clarified; do not assume QC is omitted from the factory workflow.
+**Important distinction:** QC completion and its individual `good`/`reject` result are required operational records in DPCS. A `reject` result does not automatically mean repair; the decision depends on whether repair is feasible.
 
 ## 5. Sample interpretation
 
