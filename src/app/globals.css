@@ -185,3 +185,18 @@ body {
 
 .module-action { display: inline-block; text-decoration: none; font-weight: 700; }
 .module-action:hover { color: var(--accent); }
+
+/* Login DPCS */
+.login-link { text-decoration: none; }
+.login-wrap { display: grid; place-items: center; padding: 54px 0; }
+.login-card { width: min(100%, 460px); padding: 28px; border: 1px solid var(--panel-border); border-radius: 18px; background: var(--panel); }
+.login-card h2 { margin: 0; font-size: 30px; }
+.login-description { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.login-form { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.login-form label { margin-top: 8px; color: var(--muted); font-size: 13px; }
+.login-form input { width: 100%; padding: 13px 14px; border: 1px solid var(--panel-border); border-radius: 9px; outline: none; background: #0b1220; color: var(--text); font: inherit; }
+.login-form input:focus { border-color: var(--accent); }
+.login-form button { margin-top: 12px; padding: 13px; border: 0; border-radius: 9px; background: var(--accent); color: #09221f; font-weight: 800; cursor: pointer; }
+.login-form button:disabled { opacity: .65; cursor: wait; }
+.login-message { padding: 12px; border: 1px solid #714545; border-radius: 9px; background: #301f25; color: #ffb4b4; font-size: 13px; overflow-wrap: anywhere; }
+.login-footnote { margin: 20px 0 0; color: var(--muted); font-size: 11px; }
