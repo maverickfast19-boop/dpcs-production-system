@@ -294,3 +294,50 @@ body {
  .dies-model-panel { padding:13px; }
  .dies-model-heading { align-items:flex-start; }
 }
+
+/* Modul 03 - Production Monitoring */
+.production-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:20px 0; }
+.production-summary article { display:flex; flex-direction:column; gap:8px; padding:17px; border:1px solid var(--panel-border); border-radius:13px; background:var(--panel); }
+.production-summary span { color:var(--muted); font-size:12px; }
+.production-summary strong { font-size:27px; }
+.production-toolbar { display:flex; gap:10px; margin:18px 0; }
+.production-toolbar input, .production-fields input, .production-fields select, .production-fields textarea { width:100%; min-width:0; padding:10px 11px; border:1px solid var(--panel-border); border-radius:8px; background:#0b1220; color:var(--text); font:inherit; }
+.production-toolbar input { flex:1; }
+.production-toolbar button, .production-process-footer button { border:0; border-radius:9px; padding:10px 14px; background:var(--accent); color:#09221f; font-weight:800; cursor:pointer; }
+.production-toolbar button:disabled, .production-process-footer button:disabled { opacity:.6; cursor:wait; }
+.production-unit-panel { margin:16px 0; padding:18px; border:1px solid var(--panel-border); border-radius:15px; background:var(--panel); }
+.production-unit-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+.production-unit-heading .eyebrow { margin-bottom:5px; }
+.production-unit-heading h3 { margin:0 0 5px; font-size:19px; }
+.production-unit-heading p:not(.eyebrow) { margin:0; color:var(--muted); font-size:12px; }
+.production-unit-heading > span { color:var(--accent); font-size:11px; white-space:nowrap; }
+.production-process-list { display:grid; gap:12px; }
+.production-process-card { padding:15px; border:1px solid var(--panel-border); border-radius:12px; background:#0e1929; }
+.production-process-title { display:flex; align-items:center; gap:12px; margin-bottom:13px; }
+.production-process-number { display:grid; place-items:center; width:34px; height:34px; flex:0 0 34px; border-radius:9px; background:#183d42; color:var(--accent); font-size:12px; font-weight:800; }
+.production-process-title h4 { margin:0 0 4px; font-size:15px; }
+.production-process-title p { margin:0; color:var(--muted); font-size:11px; }
+.production-status { margin-left:auto; padding:6px 9px; border:1px solid var(--panel-border); border-radius:999px; color:var(--muted); font-size:10px; white-space:nowrap; }
+.production-status-in_progress { border-color:#36566a; color:#8bd5ee; }
+.production-status-completed { border-color:#285b57; color:#a8e8d9; }
+.production-status-hold { border-color:#715a34; color:#f1d49a; }
+.production-fields { display:grid; grid-template-columns:repeat(3,1fr); gap:11px; }
+.production-fields label { display:flex; flex-direction:column; gap:6px; color:var(--muted); font-size:11px; }
+.production-fields .production-notes { grid-column:1 / -1; }
+.production-fields textarea { resize:vertical; }
+.production-process-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:13px; padding-top:12px; border-top:1px solid var(--panel-border); }
+.production-process-footer small { color:var(--muted); font-size:10px; }
+.production-process-footer button { font-size:11px; white-space:nowrap; }
+@media(max-width:650px) {
+ .production-summary { grid-template-columns:1fr; }
+ .production-toolbar { flex-direction:column; }
+ .production-toolbar button { width:100%; }
+ .production-unit-panel { padding:13px; }
+ .production-unit-heading { align-items:flex-start; }
+ .production-fields { grid-template-columns:1fr; }
+ .production-fields .production-notes { grid-column:auto; }
+ .production-process-title { flex-wrap:wrap; }
+ .production-status { margin-left:auto; }
+ .production-process-footer { align-items:flex-start; flex-direction:column; }
+ .production-process-footer button { width:100%; }
+}
