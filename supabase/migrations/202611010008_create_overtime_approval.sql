@@ -33,7 +33,12 @@ drop policy if exists "Users can request own overtime"
   on public.dpcs_overtime_requests;
 create policy "Users can request own overtime"
   on public.dpcs_overtime_requests
-  for insert to authenticated with check (requested_by = auth.uid());
+  for insert to authenticated with check (
+    requested_by = auth.uid()
+    and status = 'pending'
+    and reviewed_by is null
+    and reviewed_at is null
+  );
 
 grant select, insert on public.dpcs_overtime_requests to authenticated;
 
