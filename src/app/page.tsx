@@ -32,6 +32,12 @@ const modules = [
     description: "Kelola work order perbaikan, teknisi, tindakan, dan kesiapan QC ulang.",
     status: "Buka modul",
   },
+  {
+    number: "06",
+    title: "Machine & Capacity Management",
+    description: "Kelola jenis mesin dan jumlah kapasitas mesin pabrik.",
+    status: "Buka modul",
+  },
 ];
 
 export default function Home() {
@@ -81,7 +87,7 @@ export default function Home() {
             <p className="eyebrow">AREA KERJA</p>
             <h2>Modul utama DPCS</h2>
           </div>
-          <span className="module-count">05 MODUL</span>
+          <span className="module-count">06 MODUL</span>
         </div>
         <div className="module-grid">
           {modules.map((module) => (
@@ -94,6 +100,7 @@ export default function Home() {
                module.number === "03" ? <a className="module-status module-action" href="/production">{module.status} →</a> :
                module.number === "04" ? <a className="module-status module-action" href="/qc">{module.status} →</a> :
                module.number === "05" ? <a className="module-status module-action" href="/repair">{module.status} →</a> :
+               module.number === "06" ? <a className="module-status module-action" href="/machines">{module.status} →</a> :
                <span className="module-status">{module.status}</span>}
             </article>
           ))}
