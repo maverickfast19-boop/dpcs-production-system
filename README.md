@@ -24,6 +24,7 @@ The detailed workflow and data definitions must be validated with factory stakeh
 - [Provisional system architecture](docs/architecture.md)
 - [Draft data model based on Order Manajemen](docs/data-model.md)
 - [90-day implementation roadmap](docs/roadmap-90-days.md)
+- [Initial technology stack decision](docs/technology-stack.md)
 
 ## Delivery principles
 
@@ -35,4 +36,4 @@ The detailed workflow and data definitions must be validated with factory stakeh
 
 ## Current status
 
-Project documentation foundation initialized. Technology stack, detailed workflows, integrations, and deployment environment remain subject to discovery and approval.
+Project documentation foundation initialized. Initial online web-application stack selected for development; detailed workflows, integrations, and production deployment controls will be validated during implementation.
