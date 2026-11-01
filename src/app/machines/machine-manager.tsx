@@ -219,6 +219,11 @@ export default function MachineManager() {
         <span className="environment">MASTER MESIN</span>
       </header>
 
+      <div className="production-toolbar">
+        <strong>Analisis penggunaan fasilitas</strong>
+        <Link className="back-link" href="/machine-utilization">Buka laporan pemakaian mesin →</Link>
+      </div>
+
       <section className="order-intro">
         <p className="eyebrow">DATA FASILITAS PRODUKSI</p>
         <h2>Kenali kapasitas mesin yang tersedia.</h2>
