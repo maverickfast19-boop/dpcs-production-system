@@ -225,7 +225,7 @@ export default function MachineUtilizationManager() {
                   <p><strong>Mulai:</strong> {formatDate(row.assigned_at)}</p>
                   <p><strong>Selesai:</strong> {row.released_at ? formatDate(row.released_at) : "Belum dilepas"}</p>
                   <p><strong>Durasi:</strong> {formatDuration(elapsed)}</p>
-                  <span className={active ? "notice notice-info" : "notice notice-success"}>
+                  <span className="notice notice-info">
                     {active ? "Penugasan aktif" : "Penugasan selesai"}
                   </span>
                 </article>
