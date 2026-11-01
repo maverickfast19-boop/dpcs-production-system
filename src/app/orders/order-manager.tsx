@@ -3,6 +3,7 @@
 import { ChangeEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
+import { createClient } from "@/lib/supabase/client";
 
 type OrderRow = {
   rowNumber: number;
@@ -152,11 +153,46 @@ export default function OrderManager() {
   const [fileName, setFileName] = useState("");
   const [message, setMessage] = useState("");
   const [isReading, setIsReading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedBatchId, setSavedBatchId] = useState("");
 
   const validRows = useMemo(() => rows.filter((row) => row.errors.length === 0), [rows]);
   const invalidRows = rows.length - validRows.length;
   const totalUnits = validRows.reduce((sum, row) => sum + row.quantity, 0);
   const totalValue = validRows.reduce((sum, row) => sum + row.quantity * row.unitPrice, 0);
+
+  async function handleSave() {
+    if (validRows.length === 0 || isSaving || savedBatchId) return;
+    const months = [...new Set(validRows.map((row) => row.poDate.slice(0, 7)))];
+    if (months.length !== 1) {
+      setMessage("Satu file impor harus berisi order dari satu bulan PO. Pisahkan file berdasarkan bulan.");
+      return;
+    }
+    setIsSaving(true);
+    setMessage("");
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("import_dpcs_orders", {
+        p_file_name: fileName,
+        p_period: `${months[0]}-01`,
+        p_row_count: rows.length,
+        p_rejected_count: invalidRows,
+        p_rows: validRows.map((row) => ({
+          rowNumber: row.rowNumber, poDate: row.poDate, dueDate: row.dueDate,
+          controlNumber: row.controlNumber, customer: row.customer,
+          description: row.description, material: row.material,
+          quantity: row.quantity, unitPrice: row.unitPrice,
+        })),
+      });
+      if (error) throw error;
+      setSavedBatchId(String(data));
+      setMessage(`Berhasil disimpan ke database. ${validRows.length} baris order valid tersimpan; ${invalidRows} baris tidak valid tidak ikut disimpan.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Gagal menyimpan order ke database.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -170,7 +206,8 @@ export default function OrderManager() {
       const parsed = parseWorkbook(data);
       if (!parsed.length) throw new Error("Tidak ada baris order yang dapat dibaca.");
       setRows(parsed);
-      setMessage("Preview berhasil dibuat. Belum ada data yang disimpan ke database.");
+      setSavedBatchId("");
+      setMessage("Preview berhasil dibuat. Periksa data sebelum menyimpannya ke database.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "File tidak dapat dibaca.");
     } finally {
@@ -269,8 +306,11 @@ export default function OrderManager() {
           </section>
 
           <section className="next-step-panel">
-            <strong>Belum disimpan ke database</strong>
-            <p>Preview dan validasi sudah berjalan. Tahap penyimpanan akan diaktifkan setelah koneksi Supabase dan login pengguna disiapkan, agar setiap impor tercatat atas nama petugas yang benar.</p>
+            <strong>{savedBatchId ? "Impor berhasil disimpan" : "Simpan order ke database"}</strong>
+            <p>{savedBatchId ? `Nomor batch impor: ${savedBatchId}` : `Hanya ${validRows.length} baris valid yang akan disimpan. ${invalidRows} baris bermasalah tidak ikut disimpan. Pastikan seluruh order dalam file berasal dari satu bulan PO.`}</p>
+            <button type="button" className="upload-button" onClick={handleSave} disabled={isSaving || validRows.length === 0 || Boolean(savedBatchId)}>
+              {isSaving ? "Menyimpan..." : savedBatchId ? "Sudah tersimpan" : "Simpan order valid"}
+            </button>
           </section>
         </>
       )}
