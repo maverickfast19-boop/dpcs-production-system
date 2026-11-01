@@ -10,7 +10,7 @@
 2. One Control Number may be ordered in multiple units. Example: Control Number `26X0034A`, Qty `3` means three physical dies of the same design.
 3. `Qty` is the number of dies ordered, not the number of parts produced.
 4. `Price` is treated as unit price and `Total` is Qty multiplied by Price, based on the supplied sample.
-5. Each physical die unit must have its own internal unit identity so inspection, usage, repair, and maintenance history can be tracked separately.
+5. Each physical die unit must have its own factory-marked identity, written manually with a marker (for example, `26X0043 #1`, `26X0043 #2`). DPCS stores this exact identity so inspection, usage, repair, and maintenance history can be tracked separately.
 6. Monthly Excel imports must be traceable to the original file and import batch.
 
 ## 2. Excel source columns
@@ -120,7 +120,7 @@ One row per physical die unit, not one row per Control Number.
 | location | Current storage/machine location, when known |
 | created_at, updated_at | System timestamps |
 
-Constraint: `internal_unit_code` must be unique. A proposed display can be `26X0034A-001`, `26X0034A-002`, etc.; this is an internal tracking code and does not replace the Control Number printed or used by the factory unless approved.
+Constraint: `physical_unit_code` must be unique. Preserve the exact factory marking, including the `#` and unit number. Do not replace it with an automatically generated identifier. The Control Number remains the die model identity; the suffix (such as `#1`, `#2`) distinguishes each physical unit.
 
 ### 3.7 Operational history tables (next design iteration)
 
@@ -146,7 +146,7 @@ Detailed fields and approval flows should be designed after the factory's real w
 6. Check customer master for an existing customer or propose a new customer.
 7. Detect possible duplicate imports using file/batch metadata and row-level comparison; ask for review rather than silently duplicating.
 8. After user confirmation, save the batch, orders, and order lines.
-9. Create one physical-unit record per ordered quantity at the agreed business milestone (for example, order confirmation or goods receipt). This milestone is still to be confirmed.
+9. Immediately create one physical-unit record per ordered quantity when the order is entered. Each record starts with status `ordered`/`planned`, not received or available. Capture the manually marked physical identity (for example, `26X0043 #1`) when it is known; do not invent a physical marking.
 10. Show import results: accepted rows, rejected rows, duplicate warnings, total quantity, and total value.
 
 ## 5. Sample interpretation
