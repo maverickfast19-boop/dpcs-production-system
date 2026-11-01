@@ -1,4 +1,5 @@
 import AdminMenu from "./admin-menu";
+import DashboardOverview from "./dashboard-overview";
 
 const modules = [
   {
@@ -65,6 +66,8 @@ export default function Home() {
           <span className="metric-note">Proyek telah dibuat</span>
         </div>
       </section>
+
+      <DashboardOverview />
 
       <section className="modules-section">
         <div className="section-heading">
