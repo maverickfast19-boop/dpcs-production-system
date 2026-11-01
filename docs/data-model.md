@@ -6,7 +6,7 @@
 
 ## 1. Confirmed business rules
 
-1. `Control Number` identifies a specific die design/model, not an individual physical unit. A similar die type requested by different customers may use different materials; material must therefore be recorded for each order line according to the customer's requirement and must not be assumed fixed for the general die type.
+1. `Control Number` identifies one specific die specification, not an individual physical unit. The specification includes the required material. If the same general die type is requested with a different material or another specification change, it must use a different Control Number. Multiple physical units built to the same Control Number share that specification.
 2. One Control Number may be ordered in multiple units. Example: Control Number `26X0034A`, Qty `3` means three physical dies of the same design.
 3. `Qty` is the number of dies ordered, not the number of parts produced.
 4. `Price` is treated as unit price and `Total` is Qty multiplied by Price, based on the supplied sample.
@@ -103,7 +103,7 @@ One order line connects an order to a die model and its ordered quantity.
 | description_snapshot | Description at order time |
 | material_snapshot | Material at order time |
 
-Validation: quantity is a positive integer; total must equal quantity × unit price. `material_snapshot` records the material specifically requested by the customer for that order line. The same general die type may therefore appear on different order lines with different materials. Snapshot fields preserve what was written on the order even if master data changes later.
+Validation: quantity is a positive integer; total must equal quantity × unit price. `material_snapshot` records the material specified for that order line and must match the specification represented by its Control Number. A different material specification must be represented by a different Control Number. Snapshot fields preserve what was written on the order even if master data changes later.
 
 ### 3.6 `die_units` — Physical Unit Dies
 
