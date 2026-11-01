@@ -200,3 +200,17 @@ body {
 .login-form button:disabled { opacity: .65; cursor: wait; }
 .login-message { padding: 12px; border: 1px solid #714545; border-radius: 9px; background: #301f25; color: #ffb4b4; font-size: 13px; overflow-wrap: anywhere; }
 .login-footnote { margin: 20px 0 0; color: var(--muted); font-size: 11px; }
+
+
+/* Menu akun admin */
+.admin-menu { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
+.admin-name { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 12px; font-weight: 700; }
+.logout-button { border: 1px solid #36566a; border-radius: 999px; padding: 8px 12px; background: transparent; color: var(--accent); font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.logout-button:hover { background: #183d42; }
+.logout-button:disabled { opacity: .6; cursor: wait; }
+.admin-menu-loading { margin-left: auto; color: var(--muted); font-size: 11px; }
+@media (max-width: 650px) {
+  .admin-menu { gap: 6px; }
+  .admin-name { max-width: 105px; font-size: 10px; }
+  .logout-button { padding: 7px 9px; font-size: 10px; }
+}
