@@ -21,14 +21,6 @@ type Machine = {
   dpcs_machine_types: { machine_type: string } | null;
 };
 
-type DieUnit = {
-  id: string;
-  unit_sequence: number;
-  physical_unit_code: string | null;
-  die_model_id: string;
-  die_models: { control_number: string; description: string } | null;
-};
-
 type Assignment = {
   id: string;
   machine_id: string;
@@ -45,13 +37,6 @@ const statusLabels: Record<Machine["machine_status"], string> = {
   inactive: "Tidak aktif",
 };
 
-const processLabels: Record<string, string> = {
-  machining: "Machining",
-  assembly: "Assembly",
-  fitting: "Fitting",
-  trial: "Trial",
-};
-
 function number(value: number) {
   return new Intl.NumberFormat("id-ID").format(value);
 }
@@ -63,11 +48,8 @@ function dateTime(value: string) {
 export default function MachineManager() {
   const [items, setItems] = useState<MachineType[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
-  const [units, setUnits] = useState<DieUnit[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [counts, setCounts] = useState<Record<string, string>>({});
-  const [selectedUnits, setSelectedUnits] = useState<Record<string, string>>({});
-  const [selectedProcesses, setSelectedProcesses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -78,26 +60,22 @@ export default function MachineManager() {
     setError("");
     try {
       const db = createClient();
-      const [typeResult, machineResult, unitResult, assignmentResult] = await Promise.all([
+      const [typeResult, machineResult, assignmentResult] = await Promise.all([
         db.from("dpcs_machine_types")
           .select("id,machine_type,machine_count,process_group,notes,is_active")
           .order("machine_type"),
         db.from("dpcs_machines")
           .select("id,machine_code,machine_status,machine_type_id,dpcs_machine_types(machine_type)")
           .order("machine_code"),
-        db.from("die_units")
-          .select("id,unit_sequence,physical_unit_code,die_model_id,die_models(control_number,description)")
-          .order("created_at", { ascending: false }),
         db.from("dpcs_machine_assignments")
           .select("id,machine_id,die_unit_id,process_code,assigned_at")
           .is("released_at", null),
       ]);
-      const failed = [typeResult, machineResult, unitResult, assignmentResult].find((result) => result.error);
+      const failed = [typeResult, machineResult, assignmentResult].find((result) => result.error);
       if (failed?.error) throw failed.error;
       const typeRows = (typeResult.data ?? []) as MachineType[];
       setItems(typeRows);
       setMachines((machineResult.data ?? []) as unknown as Machine[]);
-      setUnits((unitResult.data ?? []) as unknown as DieUnit[]);
       setAssignments((assignmentResult.data ?? []) as Assignment[]);
       setCounts(Object.fromEntries(typeRows.map((item) => [item.id, String(item.machine_count)])));
     } catch (e) {
@@ -114,7 +92,6 @@ export default function MachineManager() {
     [items],
   );
   const verifiedCount = machines.filter((machine) => machine.machine_status !== "unverified").length;
-  const unitMap = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
   const assignmentByMachine = useMemo(() => new Map(assignments.map((assignment) => [assignment.machine_id, assignment])), [assignments]);
 
   async function saveCount(item: MachineType) {
@@ -156,53 +133,6 @@ export default function MachineManager() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Status mesin gagal disimpan.");
-    } finally {
-      setSaving(null);
-    }
-  }
-
-  async function assignMachine(machine: Machine) {
-    const dieUnitId = selectedUnits[machine.id];
-    const processCode = selectedProcesses[machine.id] || "machining";
-    if (!dieUnitId) {
-      setError("Pilih unit dies terlebih dahulu.");
-      setNotice("");
-      return;
-    }
-    setSaving(machine.id);
-    setError("");
-    setNotice("");
-    try {
-      const db = createClient();
-      const { error: assignError } = await db.rpc("dpcs_assign_machine", {
-        p_machine_id: machine.id,
-        p_die_unit_id: dieUnitId,
-        p_process_code: processCode,
-      });
-      if (assignError) throw assignError;
-      setNotice(`Mesin ${machine.machine_code} berhasil ditugaskan.`);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Penugasan mesin gagal disimpan.");
-    } finally {
-      setSaving(null);
-    }
-  }
-
-  async function releaseMachine(assignment: Assignment, machineCode: string) {
-    setSaving(assignment.machine_id);
-    setError("");
-    setNotice("");
-    try {
-      const db = createClient();
-      const { error: releaseError } = await db.rpc("dpcs_release_machine", {
-        p_assignment_id: assignment.id,
-      });
-      if (releaseError) throw releaseError;
-      setNotice(`Mesin ${machineCode} berhasil dilepas dan kembali tersedia.`);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Penugasan mesin gagal dilepas.");
     } finally {
       setSaving(null);
     }
@@ -287,10 +217,6 @@ export default function MachineManager() {
           <div className="qc-history">
             {machines.map((machine) => {
               const activeAssignment = assignmentByMachine.get(machine.id);
-              const assignedUnit = activeAssignment ? unitMap.get(activeAssignment.die_unit_id) : null;
-              const unitLabel = assignedUnit
-                ? `${assignedUnit.die_models?.control_number ?? "Tanpa Control Number"} · ${assignedUnit.physical_unit_code || `Unit #${assignedUnit.unit_sequence}`}`
-                : "";
               return (
                 <article className="qc-history-row" key={machine.id}>
                   <div className="qc-history-title">
@@ -310,42 +236,12 @@ export default function MachineManager() {
                   </div>
                   {activeAssignment ? (
                     <div className="notice notice-info">
-                      <strong>Penugasan aktif:</strong> {unitLabel} · {processLabels[activeAssignment.process_code] ?? activeAssignment.process_code}
+                      <strong>Penugasan aktif:</strong> Unit dies terhubung · {activeAssignment.process_code}
                       <p>Mulai: {dateTime(activeAssignment.assigned_at)}</p>
-                      <button type="button" disabled={saving === machine.id}
-                        onClick={() => void releaseMachine(activeAssignment, machine.machine_code)}>
-                        {saving === machine.id ? "Memproses..." : "Lepas mesin"}
-                      </button>
+                      <p>Kelola penyelesaian pekerjaan melalui Modul 03 Production Monitoring.</p>
                     </div>
                   ) : machine.machine_status === "available" ? (
-                    <div className="qc-fields">
-                      <label>Unit dies
-                        <select value={selectedUnits[machine.id] ?? ""}
-                          onChange={(event) => setSelectedUnits((current) => ({ ...current, [machine.id]: event.target.value }))}>
-                          <option value="">Pilih unit dies</option>
-                          {units.map((unit) => (
-                            <option key={unit.id} value={unit.id}>
-                              {(unit.die_models?.control_number ?? "Tanpa Control Number") + " · " +
-                                (unit.physical_unit_code || `Unit #${unit.unit_sequence}`) +
-                                (unit.die_models?.description ? " — " + unit.die_models.description : "")}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>Proses
-                        <select value={selectedProcesses[machine.id] ?? "machining"}
-                          onChange={(event) => setSelectedProcesses((current) => ({ ...current, [machine.id]: event.target.value }))}>
-                          <option value="machining">Machining</option>
-                          <option value="assembly">Assembly</option>
-                          <option value="fitting">Fitting</option>
-                          <option value="trial">Trial</option>
-                        </select>
-                      </label>
-                      <button type="button" disabled={saving === machine.id || units.length === 0}
-                        onClick={() => void assignMachine(machine)}>
-                        {saving === machine.id ? "Menugaskan..." : "Tugaskan dies"}
-                      </button>
-                    </div>
+                    <p className="hero-copy">Mesin siap digunakan. Penugasan dies dan pencatatan operator dilakukan melalui Modul 03 Production Monitoring.</p>
                   ) : (
                     <p className="hero-copy">Mesin harus berstatus Tersedia sebelum dapat menerima penugasan.</p>
                   )}
