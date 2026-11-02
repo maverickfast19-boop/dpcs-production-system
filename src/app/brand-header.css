@@ -1,0 +1,34 @@
+.topbar { display:flex; align-items:center; gap:24px; border:1px solid #d9e1f0; border-radius:18px; background:#fff; color:#142b62; padding:20px 22px; }
+.company-brand { display:flex; align-items:center; gap:12px; flex:0 0 auto; min-width:0; }
+.company-logo { display:block; width:66px; height:66px; object-fit:contain; flex:0 0 66px; }
+.company-copy { min-width:0; }
+.company-name { margin:0; color:#142b62; font-size:clamp(23px,3vw,32px); line-height:1; font-weight:800; letter-spacing:-.035em; white-space:nowrap; }
+.company-tagline { margin:7px 0 0; color:#243d80; font-size:9px; line-height:1.2; font-weight:800; letter-spacing:.035em; white-space:nowrap; }
+.header-divider { width:1px; align-self:stretch; min-height:58px; background:#d9e1f0; }
+.dashboard-brand-copy { min-width:0; }
+.dashboard-brand-title { margin:0; color:#142b62; font-size:clamp(24px,3.3vw,36px); line-height:1.05; font-weight:800; letter-spacing:-.04em; }
+.dashboard-brand-subtitle { margin:7px 0 0; color:#60708e; font-size:clamp(11px,1.3vw,15px); }
+.topbar .admin-menu { margin-left:auto; flex:0 0 auto; }
+.topbar .admin-name { color:#142b62; }
+.topbar .logout-button { border-color:#cbd5e5; color:#142b62; }
+.topbar .logout-button:hover { background:#eef3fb; }
+@media(max-width:760px) {
+ .topbar { gap:12px; padding:14px; flex-wrap:wrap; }
+ .company-logo { width:48px; height:48px; flex-basis:48px; }
+ .company-brand { gap:8px; }
+ .company-name { font-size:22px; }
+ .company-tagline { font-size:7px; white-space:normal; }
+ .header-divider { min-height:46px; }
+ .dashboard-brand-title { font-size:24px; }
+ .dashboard-brand-subtitle { font-size:10px; }
+ .topbar .admin-menu { margin-left:auto; }
+}
+@media(max-width:480px) {
+ .topbar { gap:10px; }
+ .company-logo { width:42px; height:42px; flex-basis:42px; }
+ .company-name { font-size:19px; }
+ .company-tagline { max-width:155px; font-size:6px; }
+ .dashboard-brand-title { font-size:20px; }
+ .dashboard-brand-subtitle { max-width:150px; line-height:1.35; }
+ .header-divider { min-height:40px; }
+}
