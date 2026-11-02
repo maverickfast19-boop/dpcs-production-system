@@ -1,65 +1,33 @@
 import AdminMenu from "./admin-menu";
 import DashboardOverview from "./dashboard-overview";
+import "./brand-header.css";
 
 const modules = [
-  {
-    number: "01",
-    title: "Order Manajemen",
-    description: "Impor dan pantau order bulanan dari Excel.",
-    status: "Buka modul",
-  },
-  {
-    number: "02",
-    title: "Control Number & Dies",
-    description: "Kelola spesifikasi, revisi, dan unit fisik setiap dies.",
-    status: "Buka modul",
-  },
-  {
-    number: "03",
-    title: "Production Monitoring",
-    description: "Pantau Workcard, proses, operator, mesin, dan status setiap unit dies.",
-    status: "Buka modul",
-  },
-  {
-    number: "04",
-    title: "Quality Control (QC)",
-    description: "Catat hasil GOOD/REJECT dan riwayat pemeriksaan setiap unit fisik.",
-    status: "Buka modul",
-  },
-  {
-    number: "05",
-    title: "Repair & Rework",
-    description: "Kelola work order perbaikan, teknisi, tindakan, dan kesiapan QC ulang.",
-    status: "Buka modul",
-  },
-  {
-    number: "06",
-    title: "Machine & Capacity Management",
-    description: "Kelola jenis mesin dan jumlah kapasitas mesin pabrik.",
-    status: "Buka modul",
-  },
-  {
-    number: "07",
-    title: "Machine Utilization",
-    description: "Pantau riwayat, durasi, dan aktivitas penggunaan setiap mesin.",
-    status: "Buka modul",
-  },
-  {
-    number: "08",
-    title: "Shift & Overtime Planning",
-    description: "Kelola kapasitas dua shift dan persetujuan overtime Kepala Produksi.",
-    status: "Buka modul",
-  },
+  { number: "01", title: "Order Manajemen", description: "Impor dan pantau order bulanan dari Excel.", status: "Buka modul" },
+  { number: "02", title: "Control Number & Dies", description: "Kelola spesifikasi, revisi, dan unit fisik setiap dies.", status: "Buka modul" },
+  { number: "03", title: "Production Monitoring", description: "Pantau Workcard, proses, operator, mesin, dan status setiap unit dies.", status: "Buka modul" },
+  { number: "04", title: "Quality Control (QC)", description: "Catat hasil GOOD/REJECT dan riwayat pemeriksaan setiap unit fisik.", status: "Buka modul" },
+  { number: "05", title: "Repair & Rework", description: "Kelola work order perbaikan, teknisi, tindakan, dan kesiapan QC ulang.", status: "Buka modul" },
+  { number: "06", title: "Machine & Capacity Management", description: "Kelola jenis mesin dan jumlah kapasitas mesin pabrik.", status: "Buka modul" },
+  { number: "07", title: "Machine Utilization", description: "Pantau riwayat, durasi, dan aktivitas penggunaan setiap mesin.", status: "Buka modul" },
+  { number: "08", title: "Shift & Overtime Planning", description: "Kelola kapasitas dua shift dan persetujuan overtime Kepala Produksi.", status: "Buka modul" },
 ];
 
 export default function Home() {
   return (
     <main className="page-shell">
       <header className="topbar">
-        <div className="brand-mark">D</div>
-        <div>
-          <p className="eyebrow">DIES PRODUCTION CONTROL SYSTEM</p>
-          <h1>DPCS</h1>
+        <div className="company-brand">
+          <img className="company-logo" src="/pt-mwi-logo.svg" alt="Logo PT. MWI" />
+          <div className="company-copy">
+            <p className="company-name">PT. MWI</p>
+            <p className="company-tagline">DIES PRODUCTION CONTROL SYSTEM</p>
+          </div>
+        </div>
+        <span className="header-divider" aria-hidden="true" />
+        <div className="dashboard-brand-copy">
+          <h1 className="dashboard-brand-title">Dashboard</h1>
+          <p className="dashboard-brand-subtitle">Production Monitoring &amp; Dies Management</p>
         </div>
         <AdminMenu />
       </header>
@@ -74,31 +42,16 @@ export default function Home() {
       </section>
 
       <section className="overview" aria-label="Status sistem">
-        <div className="overview-card">
-          <span className="metric-label">Pabrik</span>
-          <strong>1</strong>
-          <span className="metric-note">Implementasi awal</span>
-        </div>
-        <div className="overview-card">
-          <span className="metric-label">Platform</span>
-          <strong>Online</strong>
-          <span className="metric-note">Web desktop & mobile</span>
-        </div>
-        <div className="overview-card">
-          <span className="metric-label">Database</span>
-          <strong>Supabase</strong>
-          <span className="metric-note">Proyek telah dibuat</span>
-        </div>
+        <div className="overview-card"><span className="metric-label">Pabrik</span><strong>1</strong><span className="metric-note">Implementasi awal</span></div>
+        <div className="overview-card"><span className="metric-label">Platform</span><strong>Online</strong><span className="metric-note">Web desktop &amp; mobile</span></div>
+        <div className="overview-card"><span className="metric-label">Database</span><strong>Supabase</strong><span className="metric-note">Proyek telah dibuat</span></div>
       </section>
 
       <DashboardOverview />
 
       <section className="modules-section">
         <div className="section-heading">
-          <div>
-            <p className="eyebrow">AREA KERJA</p>
-            <h2>Modul utama DPCS</h2>
-          </div>
+          <div><p className="eyebrow">AREA KERJA</p><h2>Modul utama DPCS</h2></div>
           <span className="module-count">08 MODUL</span>
         </div>
         <div className="module-grid">
