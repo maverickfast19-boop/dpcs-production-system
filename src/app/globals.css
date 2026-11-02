@@ -415,3 +415,41 @@ body {
  .dies-form-grid .dies-form-wide { grid-column:auto; }
  .dies-form-grid button { width:100%; }
 }
+
+
+/* Dashboard refresh button alignment */
+.dashboard-section .section-heading {
+  justify-content: space-between;
+  gap: 16px;
+}
+.dashboard-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #36566a;
+  border-radius: 10px;
+  background: #132338;
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background .15s ease, border-color .15s ease;
+}
+.dashboard-refresh:hover {
+  background: #183d42;
+  border-color: var(--accent);
+}
+@media (max-width: 480px) {
+  .dashboard-section .section-heading {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .dashboard-refresh {
+    min-height: 36px;
+    padding: 0 11px;
+    font-size: 11px;
+  }
+}
