@@ -45,6 +45,7 @@ export default function ProductionManager() {
   const [operators, setOperators] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const [reportUnitId, setReportUnitId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -91,6 +92,13 @@ export default function ProductionManager() {
 
   const activeCount = assignments.filter((item) => !item.released_at).length;
   const availableMachines = machines.filter((item) => item.machine_status === "available");
+
+  const reportUnit = units.find((unit) => unit.id === reportUnitId) ?? units[0] ?? null;
+  const reportHistory = reportUnit
+    ? assignments
+        .filter((item) => item.die_unit_id === reportUnit.id)
+        .sort((a, b) => new Date(a.assigned_at).getTime() - new Date(b.assigned_at).getTime())
+    : [];
 
   async function startWork(unit: Unit) {
     const machineId = selectedMachines[unit.id];
@@ -167,6 +175,45 @@ export default function ProductionManager() {
         <input aria-label="Cari unit dies" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari Control Number atau marking fisik..." />
         <button type="button" onClick={() => void load()} disabled={loading}>Muat ulang</button>
       </div>
+      {!loading && units.length > 0 && (
+        <section className="production-unit-panel">
+          <article className="production-process-card">
+            <div className="production-process-title">
+              <div><h4>Laporan perjalanan produksi</h4><p>Rekam perjalanan unit dies secara berurutan, dari mesin pertama hingga kunjungan terakhir.</p></div>
+            </div>
+            <div className="production-fields">
+              <label>Pilih unit dies untuk laporan
+                <select value={reportUnit?.id ?? ""} onChange={(event) => setReportUnitId(event.target.value)}>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {(unit.die_models?.control_number ?? "Tanpa Control Number") + " · " + (unit.physical_unit_code || `Unit #${unit.unit_sequence}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {reportUnit && (
+              <>
+                <p><strong>Control Number:</strong> {reportUnit.die_models?.control_number ?? "—"} · <strong>Unit:</strong> {reportUnit.physical_unit_code || `Unit #${reportUnit.unit_sequence}`}</p>
+                <p><strong>Total kunjungan mesin:</strong> {reportHistory.length}</p>
+                {reportHistory.length === 0 ? <p className="hero-copy">Belum ada perjalanan mesin yang tercatat untuk unit ini.</p> : (
+                  <div className="qc-history">
+                    {reportHistory.map((item, index) => (
+                      <div className="qc-history-row" key={item.id}>
+                        <div className="qc-history-title"><strong>{index + 1}. {item.dpcs_machines?.machine_code ?? "Mesin"}</strong><span>{item.dpcs_machines?.dpcs_machine_types?.machine_type ?? "Jenis mesin"}</span></div>
+                        <p>Operator: {item.operator_name || "—"}</p>
+                        <p>Mulai: {dateTime(item.assigned_at)} · Selesai: {dateTime(item.released_at)}</p>
+                        {item.notes && <p>Catatan: {item.notes}</p>}
+                        <span className={`production-status production-status-${item.released_at ? "completed" : "in_progress"}`}>{item.released_at ? "Selesai" : "Aktif"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </article>
+        </section>
+      )}
       {notice && <div className="notice notice-info">{notice}</div>}
       {error && <div className="notice notice-warning">{error}</div>}
       {loading ? <div className="dashboard-message">Memuat Workcard dari database...</div> :
