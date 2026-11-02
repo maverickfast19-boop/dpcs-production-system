@@ -10,84 +10,69 @@ type Unit = {
   unit_sequence: number;
   physical_unit_code: string | null;
   status: string;
+  die_models: { control_number: string; description: string } | null;
 };
-type Model = { id: string; control_number: string; description: string };
-type StepStatus = "pending" | "in_progress" | "completed" | "hold";
-type ProcessCode = "machining" | "assembly" | "fitting" | "trial" | "qc";
-type Step = {
-  id?: string;
+type Machine = {
+  id: string;
+  machine_code: string;
+  machine_status: string;
+  dpcs_machine_types: { machine_type: string } | null;
+};
+type Assignment = {
+  id: string;
+  machine_id: string;
   die_unit_id: string;
-  process_code: ProcessCode;
-  status: StepStatus;
-  operator_name: string;
-  machine_name: string;
-  notes: string;
-  started_at?: string | null;
-  completed_at?: string | null;
-};
-const processes: { code: ProcessCode; label: string; detail: string }[] = [
-  { code: "machining", label: "Machining", detail: "Pengerjaan komponen dan proses pemesinan" },
-  { code: "assembly", label: "Assembly", detail: "Perakitan komponen dies" },
-  { code: "fitting", label: "Fitting", detail: "Penyesuaian dan pemeriksaan kesesuaian" },
-  { code: "trial", label: "Trial", detail: "Uji coba fungsi dies" },
-];
-const statusLabels: Record<StepStatus, string> = {
-  pending: "Belum dimulai",
-  in_progress: "Sedang dikerjakan",
-  completed: "Selesai",
-  hold: "HOLD",
+  operator_name: string | null;
+  notes: string | null;
+  assigned_at: string;
+  released_at: string | null;
+  dpcs_machines: {
+    machine_code: string;
+    dpcs_machine_types: { machine_type: string } | null;
+  } | null;
 };
 
-function emptyStep(unitId: string, process: ProcessCode): Step {
-  return { die_unit_id: unitId, process_code: process, status: "pending", operator_name: "", machine_name: "", notes: "" };
-}
-
-function dateTime(value?: string | null) {
+function dateTime(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default function ProductionManager() {
   const [units, setUnits] = useState<Unit[]>([]);
-  const [models, setModels] = useState<Model[]>([]);
-  const [steps, setSteps] = useState<Record<string, Step>>({});
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [selectedMachines, setSelectedMachines] = useState<Record<string, string>>({});
+  const [operators, setOperators] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const db = createClient();
-      const [unitResult, modelResult, stepResult] = await Promise.all([
-        db.from("die_units").select("id,die_model_id,unit_sequence,physical_unit_code,status").order("created_at", { ascending: false }),
-        db.from("die_models").select("id,control_number,description").order("control_number"),
-        db.from("die_unit_process_steps").select("id,die_unit_id,process_code,status,operator_name,machine_name,notes,started_at,completed_at"),
+      const [unitResult, machineResult, assignmentResult] = await Promise.all([
+        db.from("die_units")
+          .select("id,die_model_id,unit_sequence,physical_unit_code,status,die_models(control_number,description)")
+          .order("created_at", { ascending: false }),
+        db.from("dpcs_machines")
+          .select("id,machine_code,machine_status,dpcs_machine_types(machine_type)")
+          .order("machine_code"),
+        db.from("dpcs_machine_assignments")
+          .select("id,machine_id,die_unit_id,operator_name,notes,assigned_at,released_at,dpcs_machines(machine_code,dpcs_machine_types(machine_type))")
+          .order("assigned_at", { ascending: false }),
       ]);
-      const failed = [unitResult, modelResult, stepResult].find((result) => result.error);
+      const failed = [unitResult, machineResult, assignmentResult].find((result) => result.error);
       if (failed?.error) throw failed.error;
-      const loadedUnits = (unitResult.data ?? []) as Unit[];
-      const loadedModels = (modelResult.data ?? []) as Model[];
-      const loadedSteps = (stepResult.data ?? []) as Step[];
-      const byUnitAndProcess: Record<string, Step> = {};
-      for (const unit of loadedUnits) {
-        for (const process of processes) byUnitAndProcess[`${unit.id}:${process.code}`] = emptyStep(unit.id, process.code);
-      }
-      for (const step of loadedSteps) byUnitAndProcess[`${step.die_unit_id}:${step.process_code}`] = {
-        ...emptyStep(step.die_unit_id, step.process_code),
-        ...step,
-        operator_name: step.operator_name ?? "",
-        machine_name: step.machine_name ?? "",
-        notes: step.notes ?? "",
-      };
-      setUnits(loadedUnits);
-      setModels(loadedModels);
-      setSteps(byUnitAndProcess);
+      setUnits((unitResult.data ?? []) as unknown as Unit[]);
+      setMachines((machineResult.data ?? []) as unknown as Machine[]);
+      setAssignments((assignmentResult.data ?? []) as unknown as Assignment[]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Data monitoring produksi gagal dimuat.");
+      setError(e instanceof Error ? e.message : "Data Workcard gagal dimuat.");
     } finally {
       setLoading(false);
     }
@@ -95,59 +80,71 @@ export default function ProductionManager() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const modelMap = useMemo(() => new Map(models.map((model) => [model.id, model])), [models]);
   const visibleUnits = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return units.filter((unit) => {
-      const model = modelMap.get(unit.die_model_id);
-      return !q || [model?.control_number ?? "", model?.description ?? "", unit.physical_unit_code ?? ""]
-        .some((value) => value.toLowerCase().includes(q));
-    });
-  }, [units, modelMap, search]);
+    return units.filter((unit) => !q || [
+      unit.die_models?.control_number ?? "",
+      unit.die_models?.description ?? "",
+      unit.physical_unit_code ?? "",
+    ].some((value) => value.toLowerCase().includes(q)));
+  }, [units, search]);
 
-  function updateStep(key: string, patch: Partial<Step>) {
-    setSteps((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
-  }
+  const activeCount = assignments.filter((item) => !item.released_at).length;
+  const availableMachines = machines.filter((item) => item.machine_status === "available");
 
-  async function saveStep(unit: Unit, process: ProcessCode) {
-    const key = `${unit.id}:${process}`;
-    const current = steps[key] ?? emptyStep(unit.id, process);
-    setSaving(key);
-    setNotice("");
+  async function startWork(unit: Unit) {
+    const machineId = selectedMachines[unit.id];
+    const operatorName = (operators[unit.id] ?? "").trim();
+    if (!machineId) {
+      setError("Pilih mesin yang akan digunakan.");
+      setNotice("");
+      return;
+    }
+    if (!operatorName) {
+      setError("Nama operator wajib diisi.");
+      setNotice("");
+      return;
+    }
+    setSaving(unit.id);
     setError("");
-    const now = new Date().toISOString();
-    const payload = {
-      die_unit_id: unit.id,
-      process_code: process,
-      status: current.status,
-      operator_name: current.operator_name.trim() || null,
-      machine_name: current.machine_name.trim() || null,
-      notes: current.notes.trim() || null,
-      started_at: current.status === "pending" ? null : (current.started_at || now),
-      completed_at: current.status === "completed" ? (current.completed_at || now) : null,
-      updated_at: now,
-    };
+    setNotice("");
     try {
       const db = createClient();
-      const { data, error: saveError } = await db.from("die_unit_process_steps")
-        .upsert(payload, { onConflict: "die_unit_id,process_code" })
-        .select("id,die_unit_id,process_code,status,operator_name,machine_name,notes,started_at,completed_at")
-        .single();
-      if (saveError) throw saveError;
-      setSteps((currentSteps) => ({
-        ...currentSteps,
-        [key]: { ...current, ...data, operator_name: data.operator_name ?? "", machine_name: data.machine_name ?? "", notes: data.notes ?? "" },
-      }));
-      setNotice(`Proses ${processes.find((item) => item.code === process)?.label} untuk ${unit.physical_unit_code || `unit #${unit.unit_sequence}`} berhasil disimpan.`);
+      const { error: startError } = await db.rpc("dpcs_assign_machine_work", {
+        p_machine_id: machineId,
+        p_die_unit_id: unit.id,
+        p_operator_name: operatorName,
+        p_notes: (notes[unit.id] ?? "").trim() || null,
+      });
+      if (startError) throw startError;
+      setNotice("Pekerjaan berhasil dimulai dan tercatat di riwayat Workcard.");
+      setSelectedMachines((current) => ({ ...current, [unit.id]: "" }));
+      setOperators((current) => ({ ...current, [unit.id]: "" }));
+      setNotes((current) => ({ ...current, [unit.id]: "" }));
+      await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Perubahan proses gagal disimpan.");
+      setError(e instanceof Error ? e.message : "Pekerjaan mesin gagal dimulai.");
     } finally {
       setSaving(null);
     }
   }
 
-  const completedCount = Object.values(steps).filter((step) => step.status === "completed").length;
-  const holdCount = Object.values(steps).filter((step) => step.status === "hold").length;
+  async function finishWork(item: Assignment) {
+    setSaving(item.id);
+    setError("");
+    setNotice("");
+    try {
+      const db = createClient();
+      const { error: finishError } = await db.rpc("dpcs_release_machine", { p_assignment_id: item.id });
+      if (finishError) throw finishError;
+      setNotice("Pekerjaan selesai. Riwayat tersimpan dan mesin kembali tersedia.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Pekerjaan gagal diselesaikan.");
+    } finally {
+      setSaving(null);
+    }
+  }
 
   return (
     <main className="page-shell order-page production-page">
@@ -157,14 +154,14 @@ export default function ProductionManager() {
         <span className="environment">WORKCARD</span>
       </header>
       <section className="order-intro">
-        <p className="eyebrow">PEMANTAUAN PROSES PER UNIT DIES</p>
-        <h2>Setiap unit, setiap proses, tercatat.</h2>
-        <p className="hero-copy">Catat pelaksana, mesin, status, dan catatan proses untuk setiap unit fisik. Perubahan pada satu unit tidak mengubah unit lain yang memiliki Control Number sama.</p>
+        <p className="eyebrow">PERJALANAN PRODUKSI SETIAP UNIT DIES</p>
+        <h2>Catat perjalanan dies dari mesin ke mesin.</h2>
+        <p className="hero-copy">Pilih mesin yang tersedia, catat operator, lalu mulai pekerjaan. Setiap kunjungan ke mesin menjadi catatan baru. Unit boleh kembali ke mesin yang sama tanpa menimpa riwayat sebelumnya.</p>
       </section>
       <section className="production-summary">
-        <article><span>Total unit</span><strong>{units.length}</strong></article>
-        <article><span>Proses selesai</span><strong>{completedCount}</strong></article>
-        <article><span>Proses HOLD</span><strong>{holdCount}</strong></article>
+        <article><span>Total unit dies</span><strong>{units.length}</strong></article>
+        <article><span>Mesin tersedia</span><strong>{availableMachines.length}</strong></article>
+        <article><span>Pekerjaan aktif</span><strong>{activeCount}</strong></article>
       </section>
       <div className="production-toolbar">
         <input aria-label="Cari unit dies" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari Control Number atau marking fisik..." />
@@ -173,43 +170,61 @@ export default function ProductionManager() {
       {notice && <div className="notice notice-info">{notice}</div>}
       {error && <div className="notice notice-warning">{error}</div>}
       {loading ? <div className="dashboard-message">Memuat Workcard dari database...</div> :
-        visibleUnits.length === 0 ? <div className="dashboard-message">Belum ada unit dies. Impor order dan periksa Modul 02 terlebih dahulu.</div> :
+        visibleUnits.length === 0 ? <div className="dashboard-message">Belum ada unit dies. Periksa Modul 02 terlebih dahulu.</div> :
         visibleUnits.map((unit) => {
-          const model = modelMap.get(unit.die_model_id);
-          const unitLabel = unit.physical_unit_code || `Unit #${unit.unit_sequence} (belum diberi marking)`;
+          const unitLabel = unit.physical_unit_code || `Unit #${unit.unit_sequence}`;
+          const history = assignments.filter((item) => item.die_unit_id === unit.id);
+          const active = history.find((item) => !item.released_at);
           return (
             <section className="production-unit-panel" key={unit.id}>
               <div className="production-unit-heading">
-                <div><p className="eyebrow">CONTROL NUMBER · {model?.control_number ?? "—"}</p><h3>{unitLabel}</h3><p>{model?.description ?? "Deskripsi dies tidak tersedia"}</p></div>
+                <div><p className="eyebrow">CONTROL NUMBER · {unit.die_models?.control_number ?? "—"}</p><h3>{unitLabel}</h3><p>{unit.die_models?.description ?? "Deskripsi dies tidak tersedia"}</p></div>
                 <span>{unit.status.replaceAll("_", " ")}</span>
               </div>
-              <div className="production-process-list">
-                {processes.map((process, index) => {
-                  const key = `${unit.id}:${process.code}`;
-                  const step = steps[key] ?? emptyStep(unit.id, process.code);
-                  return (
-                    <article className="production-process-card" key={key}>
-                      <div className="production-process-title">
-                        <span className="production-process-number">{String(index + 1).padStart(2, "0")}</span>
-                        <div><h4>{process.label}</h4><p>{process.detail}</p></div>
-                        <span className={`production-status production-status-${step.status}`}>{statusLabels[step.status]}</span>
+              <article className="production-process-card">
+                <div className="production-process-title">
+                  <div><h4>{active ? "Pekerjaan sedang berlangsung" : "Mulai pekerjaan mesin"}</h4><p>Operator dan mesin dicatat pada setiap kunjungan</p></div>
+                  <span className={`production-status production-status-${active ? "in_progress" : "pending"}`}>{active ? "Sedang dikerjakan" : "Menunggu mesin"}</span>
+                </div>
+                {active ? (
+                  <div className="production-fields">
+                    <div><strong>{active.dpcs_machines?.machine_code ?? "Mesin"}</strong><p>{active.dpcs_machines?.dpcs_machine_types?.machine_type ?? "Jenis mesin"}</p><p>Operator: {active.operator_name || "—"}</p><p>Mulai: {dateTime(active.assigned_at)}</p></div>
+                    <div><p>{active.notes || "Tidak ada catatan."}</p><button type="button" disabled={saving === active.id} onClick={() => void finishWork(active)}>{saving === active.id ? "Memproses..." : "Selesaikan pekerjaan / lepas mesin"}</button></div>
+                  </div>
+                ) : (
+                  <div className="production-fields">
+                    <label>Mesin tersedia
+                      <select value={selectedMachines[unit.id] ?? ""} onChange={(event) => setSelectedMachines((current) => ({ ...current, [unit.id]: event.target.value }))}>
+                        <option value="">Pilih mesin</option>
+                        {availableMachines.map((machine) => <option key={machine.id} value={machine.id}>{machine.machine_code} · {machine.dpcs_machine_types?.machine_type ?? "Mesin"}</option>)}
+                      </select>
+                    </label>
+                    <label>Nama operator
+                      <input value={operators[unit.id] ?? ""} onChange={(event) => setOperators((current) => ({ ...current, [unit.id]: event.target.value }))} placeholder="Masukkan nama operator" />
+                    </label>
+                    <label className="production-notes">Catatan pekerjaan
+                      <textarea rows={2} value={notes[unit.id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [unit.id]: event.target.value }))} placeholder="Opsional: pekerjaan atau instruksi..." />
+                    </label>
+                    <button type="button" disabled={saving === unit.id || availableMachines.length === 0} onClick={() => void startWork(unit)}>{saving === unit.id ? "Menyimpan..." : "Mulai pekerjaan"}</button>
+                  </div>
+                )}
+              </article>
+              <article className="production-process-card">
+                <div className="production-process-title"><div><h4>Riwayat perjalanan mesin</h4><p>{history.length} kunjungan tercatat · urutan terbaru di atas</p></div></div>
+                {history.length === 0 ? <p className="hero-copy">Belum ada riwayat pekerjaan untuk unit ini.</p> : (
+                  <div className="qc-history">
+                    {history.map((item, index) => (
+                      <div className="qc-history-row" key={item.id}>
+                        <div className="qc-history-title"><strong>{history.length - index}. {item.dpcs_machines?.machine_code ?? "Mesin"}</strong><span>{item.dpcs_machines?.dpcs_machine_types?.machine_type ?? "Jenis mesin"}</span></div>
+                        <p>Operator: {item.operator_name || "—"}</p>
+                        <p>Mulai: {dateTime(item.assigned_at)} · Selesai: {dateTime(item.released_at)}</p>
+                        {item.notes && <p>Catatan: {item.notes}</p>}
+                        <span className={`production-status production-status-${item.released_at ? "completed" : "in_progress"}`}>{item.released_at ? "Selesai" : "Aktif"}</span>
                       </div>
-                      <div className="production-fields">
-                        <label>Operator<input value={step.operator_name} onChange={(event) => updateStep(key, { operator_name: event.target.value })} placeholder="Nama operator" /></label>
-                        <label>Mesin / area<input value={step.machine_name} onChange={(event) => updateStep(key, { machine_name: event.target.value })} placeholder="Nama mesin atau area" /></label>
-                        <label>Status<select value={step.status} onChange={(event) => updateStep(key, { status: event.target.value as StepStatus })}>
-                          <option value="pending">Belum dimulai</option><option value="in_progress">Sedang dikerjakan</option><option value="completed">Selesai</option><option value="hold">HOLD</option>
-                        </select></label>
-                        <label className="production-notes">Catatan<textarea value={step.notes} onChange={(event) => updateStep(key, { notes: event.target.value })} placeholder="Catatan pekerjaan, kendala, atau hasil proses..." rows={2} /></label>
-                      </div>
-                      <div className="production-process-footer">
-                        <small>Mulai: {dateTime(step.started_at)} · Selesai: {dateTime(step.completed_at)}</small>
-                        <button type="button" disabled={saving === key} onClick={() => void saveStep(unit, process.code)}>{saving === key ? "Menyimpan..." : "Simpan proses"}</button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                    ))}
+                  </div>
+                )}
+              </article>
             </section>
           );
         })}
