@@ -117,7 +117,6 @@ export default function ProductionManager() {
     ].some((value) => value.toLowerCase().includes(q)));
   }, [viewUnits, search]);
 
-  const activeCount = assignments.filter((item) => !item.released_at).length;
   const availableMachines = machines.filter((item) => item.machine_status === "available");
 
   const reportUnit = viewUnits.find((unit) => unit.id === reportUnitId) ?? viewUnits[0] ?? null;
