@@ -463,7 +463,7 @@ export default function ProductionManager() {
               </article>
               <article className="production-process-card">
                 <div className="production-process-title">
-                  <div><h4>Pencocokan Repeat Order</h4><p>Product/Model, bentuk dies, dan seluruh dimensi harus identik; PO harus berbeda.</p></div>
+                  <div><h4>Pencocokan Repeat Order</h4><p>Product/Model, bentuk dies, dan seluruh dimensi harus identik; pencocokan memakai riwayat dari order sebelumnya, bukan nomor PO.</p></div>
                   {repeatMatches.has(unit.id) ? (
                     <span className="production-status production-status-completed">REPEAT ORDER</span>
                   ) : (
