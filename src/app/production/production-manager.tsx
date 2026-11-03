@@ -7,6 +7,12 @@ import { createClient } from "@/lib/supabase/client";
 type Unit = {
   id: string;
   die_model_id: string;
+  order_line_id: string;
+  created_at: string;
+  die_order_lines: {
+    die_order_id: string;
+    die_orders: { po_date: string; due_date: string } | null;
+  } | null;
   unit_sequence: number;
   physical_unit_code: string | null;
   status: string;
@@ -52,6 +58,34 @@ function dateTime(value: string | null) {
   return new Date(value).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
+function formatDuration(hours: number) {
+  if (!Number.isFinite(hours) || hours <= 0) return "Belum tersedia";
+  const minutes = Math.round(hours * 60);
+  const wholeHours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (wholeHours === 0) return `${remainingMinutes} menit`;
+  if (remainingMinutes === 0) return `${wholeHours} jam`;
+  return `${wholeHours} jam ${remainingMinutes} menit`;
+}
+
+function sameWorkcardSpecification(a: Unit, b: Unit) {
+  const productA = (a.product_model ?? "").trim().toLocaleLowerCase("id-ID").replace(/\s+/g, " ");
+  const productB = (b.product_model ?? "").trim().toLocaleLowerCase("id-ID").replace(/\s+/g, " ");
+  if (!productA || productA !== productB || !a.die_shape || a.die_shape !== b.die_shape) return false;
+  if (a.die_shape === "box") {
+    return a.length_mm != null && a.width_mm != null && a.height_mm != null &&
+      b.length_mm != null && b.width_mm != null && b.height_mm != null &&
+      a.diameter_mm == null && b.diameter_mm == null &&
+      a.length_mm === b.length_mm && a.width_mm === b.width_mm && a.height_mm === b.height_mm;
+  }
+  return a.die_shape === "cylinder" &&
+    a.length_mm != null && a.diameter_mm != null &&
+    b.length_mm != null && b.diameter_mm != null &&
+    a.width_mm == null && a.height_mm == null &&
+    b.width_mm == null && b.height_mm == null &&
+    a.length_mm === b.length_mm && a.diameter_mm === b.diameter_mm;
+}
+
 export default function ProductionManager() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -84,7 +118,7 @@ export default function ProductionManager() {
       const db = createClient();
       const [unitResult, machineResult, assignmentResult, qcResult] = await Promise.all([
         db.from("die_units")
-          .select("id,die_model_id,unit_sequence,physical_unit_code,status,product_model,die_shape,length_mm,width_mm,height_mm,diameter_mm,die_models(control_number,description)")
+          .select("id,die_model_id,order_line_id,created_at,unit_sequence,physical_unit_code,status,product_model,die_shape,length_mm,width_mm,height_mm,diameter_mm,die_models(control_number,description),die_order_lines(die_order_id,die_orders(po_date,due_date))")
           .order("created_at", { ascending: false }),
         db.from("dpcs_machines")
           .select("id,machine_code,machine_status,dpcs_machine_types(machine_type)")
@@ -150,6 +184,50 @@ export default function ProductionManager() {
   }, [viewUnits, search]);
 
   const availableMachines = machines.filter((item) => item.machine_status === "available");
+
+  const repeatMatches = useMemo(() => {
+    const result = new Map<string, {
+      historicalUnitCount: number;
+      averageMachineHours: number | null;
+      latestControlNumber: string;
+      latestPoDate: string | null;
+    }>();
+    for (const unit of units) {
+      const currentOrderId = unit.die_order_lines?.die_order_id;
+      if (!currentOrderId || !unit.product_model?.trim() || !unit.die_shape) continue;
+      const candidates = units.filter((candidate) => {
+        const candidateOrderId = candidate.die_order_lines?.die_order_id;
+        if (!candidateOrderId || candidateOrderId === currentOrderId || !sameWorkcardSpecification(unit, candidate)) return false;
+        const currentPoDate = unit.die_order_lines?.die_orders?.po_date;
+        const candidatePoDate = candidate.die_order_lines?.die_orders?.po_date;
+        if (currentPoDate && candidatePoDate && candidatePoDate > currentPoDate) return false;
+        if (currentPoDate && candidatePoDate === currentPoDate && candidate.created_at >= unit.created_at) return false;
+        return assignments.some((assignment) =>
+          assignment.die_unit_id === candidate.id && assignment.released_at !== null &&
+          new Date(assignment.released_at).getTime() > new Date(assignment.assigned_at).getTime()
+        );
+      });
+      const completedDurations = candidates.map((candidate) => {
+        const durations = assignments
+          .filter((assignment) => assignment.die_unit_id === candidate.id && assignment.released_at)
+          .map((assignment) => (new Date(assignment.released_at as string).getTime() - new Date(assignment.assigned_at).getTime()) / 3600000)
+          .filter((hours) => Number.isFinite(hours) && hours > 0);
+        return durations.reduce((sum, hours) => sum + hours, 0);
+      }).filter((hours) => hours > 0);
+      const latest = [...candidates].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+      if (candidates.length > 0 && latest) {
+        result.set(unit.id, {
+          historicalUnitCount: candidates.length,
+          averageMachineHours: completedDurations.length > 0
+            ? completedDurations.reduce((sum, hours) => sum + hours, 0) / completedDurations.length
+            : null,
+          latestControlNumber: latest.die_models?.control_number ?? "—",
+          latestPoDate: latest.die_order_lines?.die_orders?.po_date ?? null,
+        });
+      }
+    }
+    return result;
+  }, [units, assignments]);
 
   const reportUnit = viewUnits.find((unit) => unit.id === reportUnitId) ?? viewUnits[0] ?? null;
   const reportHistory = reportUnit
@@ -381,6 +459,29 @@ export default function ProductionManager() {
                   </div>
                 ) : (
                   <p>{unit.product_model || "Product / Model belum diisi"} · {unit.die_shape === "box" ? `Box · ${unit.length_mm} × ${unit.width_mm} × ${unit.height_mm} mm` : unit.die_shape === "cylinder" ? `Cylinder · Ø${unit.diameter_mm} × ${unit.length_mm} mm` : "Ukuran dies belum diisi"}</p>
+                )}
+              </article>
+              <article className="production-process-card">
+                <div className="production-process-title">
+                  <div><h4>Pencocokan Repeat Order</h4><p>Product/Model, bentuk dies, dan seluruh dimensi harus identik; pencocokan memakai riwayat dari order sebelumnya, bukan nomor PO.</p></div>
+                  {repeatMatches.has(unit.id) ? (
+                    <span className="production-status production-status-completed">REPEAT ORDER</span>
+                  ) : (
+                    <span className="production-status production-status-pending">NEW ORDER</span>
+                  )}
+                </div>
+                {repeatMatches.has(unit.id) ? (
+                  <div>
+                    <p>Spesifikasi cocok dengan {repeatMatches.get(unit.id)?.historicalUnitCount} unit dies dari PO sebelumnya.</p>
+                    <p>Referensi terakhir: Control Number <strong>{repeatMatches.get(unit.id)?.latestControlNumber}</strong>
+                      {repeatMatches.get(unit.id)?.latestPoDate ? ` · PO ${repeatMatches.get(unit.id)?.latestPoDate}` : ""}.</p>
+                    <p><strong>Rata-rata durasi kerja mesin:</strong> {repeatMatches.get(unit.id)?.averageMachineHours == null
+                      ? "Belum tersedia dari riwayat mesin yang selesai."
+                      : formatDuration(repeatMatches.get(unit.id)?.averageMachineHours ?? 0)}.</p>
+                    <p className="hero-copy">Estimasi ini hanya memakai total durasi penugasan mesin yang sudah selesai pada unit referensi, bukan total lead time seluruh proses produksi.</p>
+                  </div>
+                ) : (
+                  <p>Belum ditemukan riwayat produksi terdahulu dengan spesifikasi yang sama persis. Unit dikategorikan sebagai New Order.</p>
                 )}
               </article>
               <article className="production-process-card">
