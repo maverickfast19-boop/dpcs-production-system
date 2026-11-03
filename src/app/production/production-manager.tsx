@@ -18,6 +18,15 @@ type Machine = {
   machine_status: string;
   dpcs_machine_types: { machine_type: string } | null;
 };
+type QCInspection = {
+  id: string;
+  die_unit_id: string;
+  result: "good" | "reject";
+  inspector_name: string;
+  findings: string | null;
+  notes: string | null;
+  created_at: string;
+};
 type Assignment = {
   id: string;
   machine_id: string;
@@ -41,6 +50,8 @@ export default function ProductionManager() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [qcInspections, setQcInspections] = useState<QCInspection[]>([]);
+  const [view, setView] = useState<"active" | "history">("active");
   const [selectedMachines, setSelectedMachines] = useState<Record<string, string>>({});
   const [operators, setOperators] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -56,7 +67,7 @@ export default function ProductionManager() {
     setError("");
     try {
       const db = createClient();
-      const [unitResult, machineResult, assignmentResult] = await Promise.all([
+      const [unitResult, machineResult, assignmentResult, qcResult] = await Promise.all([
         db.from("die_units")
           .select("id,die_model_id,unit_sequence,physical_unit_code,status,die_models(control_number,description)")
           .order("created_at", { ascending: false }),
@@ -66,12 +77,16 @@ export default function ProductionManager() {
         db.from("dpcs_machine_assignments")
           .select("id,machine_id,die_unit_id,operator_name,notes,assigned_at,released_at,dpcs_machines(machine_code,dpcs_machine_types(machine_type))")
           .order("assigned_at", { ascending: false }),
+        db.from("die_unit_qc_inspections")
+          .select("id,die_unit_id,result,inspector_name,findings,notes,created_at")
+          .order("created_at", { ascending: false }),
       ]);
-      const failed = [unitResult, machineResult, assignmentResult].find((result) => result.error);
+      const failed = [unitResult, machineResult, assignmentResult, qcResult].find((result) => result.error);
       if (failed?.error) throw failed.error;
       setUnits((unitResult.data ?? []) as unknown as Unit[]);
       setMachines((machineResult.data ?? []) as unknown as Machine[]);
       setAssignments((assignmentResult.data ?? []) as unknown as Assignment[]);
+      setQcInspections((qcResult.data ?? []) as QCInspection[]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data Workcard gagal dimuat.");
     } finally {
@@ -81,19 +96,30 @@ export default function ProductionManager() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const latestQCByUnit = useMemo(() => {
+    const latest = new Map<string, QCInspection>();
+    for (const inspection of qcInspections) {
+      if (!latest.has(inspection.die_unit_id)) latest.set(inspection.die_unit_id, inspection);
+    }
+    return latest;
+  }, [qcInspections]);
+
+  const activeUnits = useMemo(() => units.filter((unit) => latestQCByUnit.get(unit.id)?.result !== "good"), [units, latestQCByUnit]);
+  const historyUnits = useMemo(() => units.filter((unit) => latestQCByUnit.get(unit.id)?.result === "good"), [units, latestQCByUnit]);
+  const viewUnits = view === "history" ? historyUnits : activeUnits;
+
   const visibleUnits = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return units.filter((unit) => !q || [
+    return viewUnits.filter((unit) => !q || [
       unit.die_models?.control_number ?? "",
       unit.die_models?.description ?? "",
       unit.physical_unit_code ?? "",
     ].some((value) => value.toLowerCase().includes(q)));
-  }, [units, search]);
+  }, [viewUnits, search]);
 
-  const activeCount = assignments.filter((item) => !item.released_at).length;
   const availableMachines = machines.filter((item) => item.machine_status === "available");
 
-  const reportUnit = units.find((unit) => unit.id === reportUnitId) ?? units[0] ?? null;
+  const reportUnit = viewUnits.find((unit) => unit.id === reportUnitId) ?? viewUnits[0] ?? null;
   const reportHistory = reportUnit
     ? assignments
         .filter((item) => item.die_unit_id === reportUnit.id)
@@ -168,14 +194,22 @@ export default function ProductionManager() {
       </section>
       <section className="production-summary">
         <article><span>Total unit dies</span><strong>{units.length}</strong></article>
-        <article><span>Mesin tersedia</span><strong>{availableMachines.length}</strong></article>
-        <article><span>Pekerjaan aktif</span><strong>{activeCount}</strong></article>
+        <article><span>Dalam produksi aktif</span><strong>{activeUnits.length}</strong></article>
+        <article><span>Lolos QC / History</span><strong>{historyUnits.length}</strong></article>
       </section>
+      <nav className="production-view-switch" aria-label="Tampilan Production Monitoring">
+        <button type="button" className={view === "active" ? "is-selected" : ""} onClick={() => { setView("active"); setSearch(""); setReportUnitId(""); }}>
+          Active Production <span>{activeUnits.length}</span>
+        </button>
+        <button type="button" className={view === "history" ? "is-selected" : ""} onClick={() => { setView("history"); setSearch(""); setReportUnitId(""); }}>
+          Production History <span>{historyUnits.length}</span>
+        </button>
+      </nav>
       <div className="production-toolbar">
         <input aria-label="Cari unit dies" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari Control Number atau marking fisik..." />
         <button type="button" onClick={() => void load()} disabled={loading}>Muat ulang</button>
       </div>
-      {!loading && units.length > 0 && (
+      {!loading && viewUnits.length > 0 && (
         <section className="production-unit-panel">
           <article className="production-process-card">
             <div className="production-process-title">
@@ -184,7 +218,7 @@ export default function ProductionManager() {
             <div className="production-fields">
               <label>Pilih unit dies untuk laporan
                 <select value={reportUnit?.id ?? ""} onChange={(event) => setReportUnitId(event.target.value)}>
-                  {units.map((unit) => (
+                  {viewUnits.map((unit) => (
                     <option key={unit.id} value={unit.id}>
                       {(unit.die_models?.control_number ?? "Tanpa Control Number") + " · " + (unit.physical_unit_code || `Unit #${unit.unit_sequence}`)}
                     </option>
@@ -216,19 +250,46 @@ export default function ProductionManager() {
       )}
       {notice && <div className="notice notice-info">{notice}</div>}
       {error && <div className="notice notice-warning">{error}</div>}
-      {loading ? <div className="dashboard-message">Memuat Workcard dari database...</div> :
-        visibleUnits.length === 0 ? <div className="dashboard-message">Belum ada unit dies. Periksa Modul 02 terlebih dahulu.</div> :
+      {loading ? <div className="dashboard-message">Memuat Workcard dan status QC dari database...</div> :
+        visibleUnits.length === 0 ? (
+          <div className="dashboard-message">
+            {view === "active"
+              ? "Tidak ada unit aktif yang cocok. Unit dengan hasil QC terakhir GOOD dapat dilihat pada Production History."
+              : "Belum ada unit yang lolos QC. Setelah hasil QC terakhir GOOD, unit akan muncul otomatis di Production History."}
+          </div>
+        ) :
         visibleUnits.map((unit) => {
           const unitLabel = unit.physical_unit_code || `Unit #${unit.unit_sequence}`;
           const history = assignments.filter((item) => item.die_unit_id === unit.id);
           const active = history.find((item) => !item.released_at);
+          const qcHistory = qcInspections.filter((item) => item.die_unit_id === unit.id);
+          const latestQC = latestQCByUnit.get(unit.id);
           return (
             <section className="production-unit-panel" key={unit.id}>
               <div className="production-unit-heading">
                 <div><p className="eyebrow">CONTROL NUMBER · {unit.die_models?.control_number ?? "—"}</p><h3>{unitLabel}</h3><p>{unit.die_models?.description ?? "Deskripsi dies tidak tersedia"}</p></div>
-                <span>{unit.status.replaceAll("_", " ")}</span>
+                <span>{view === "history" ? "LOLOS QC" : unit.status.replaceAll("_", " ")}</span>
               </div>
               <article className="production-process-card">
+                <div className="production-process-title">
+                  <div><h4>Hasil QC terakhir</h4><p>{latestQC ? latestQC.result.toUpperCase() + " · " + dateTime(latestQC.created_at) + " · " + latestQC.inspector_name : "Belum ada pemeriksaan QC"}</p></div>
+                  {latestQC && <span className={latestQC.result === "good" ? "production-status production-status-completed" : "production-status production-status-hold"}>{latestQC.result.toUpperCase()}</span>}
+                </div>
+                {qcHistory.length > 0 && (
+                  <div className="qc-history">
+                    <h4>Riwayat pemeriksaan QC ({qcHistory.length})</h4>
+                    {qcHistory.map((inspection, index) => (
+                      <div className="qc-history-row" key={inspection.id}>
+                        <div className="qc-history-title"><strong>{qcHistory.length - index}. {inspection.result.toUpperCase()}</strong><span>{dateTime(inspection.created_at)}</span></div>
+                        <p>Inspektor: {inspection.inspector_name}</p>
+                        {inspection.findings && <p>Temuan: {inspection.findings}</p>}
+                        {inspection.notes && <p>Catatan: {inspection.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+              {view === "active" && <article className="production-process-card">
                 <div className="production-process-title">
                   <div><h4>{active ? "Pekerjaan sedang berlangsung" : "Mulai pekerjaan mesin"}</h4><p>Operator dan mesin dicatat pada setiap kunjungan</p></div>
                   <span className={`production-status production-status-${active ? "in_progress" : "pending"}`}>{active ? "Sedang dikerjakan" : "Menunggu mesin"}</span>
@@ -255,7 +316,7 @@ export default function ProductionManager() {
                     <button type="button" disabled={saving === unit.id || availableMachines.length === 0} onClick={() => void startWork(unit)}>{saving === unit.id ? "Menyimpan..." : "Mulai pekerjaan"}</button>
                   </div>
                 )}
-              </article>
+              </article>}
               <article className="production-process-card">
                 <div className="production-process-title"><div><h4>Riwayat perjalanan mesin</h4><p>{history.length} kunjungan tercatat · urutan terbaru di atas</p></div></div>
                 {history.length === 0 ? <p className="hero-copy">Belum ada riwayat pekerjaan untuk unit ini.</p> : (
