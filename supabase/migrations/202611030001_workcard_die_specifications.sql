@@ -27,16 +27,16 @@ alter table public.die_units
     or
     (
       die_shape = 'box'
-      and length_mm > 0
-      and width_mm > 0
-      and height_mm > 0
+      and length_mm is not null and length_mm > 0
+      and width_mm is not null and width_mm > 0
+      and height_mm is not null and height_mm > 0
       and diameter_mm is null
     )
     or
     (
       die_shape = 'cylinder'
-      and diameter_mm > 0
-      and length_mm > 0
+      and diameter_mm is not null and diameter_mm > 0
+      and length_mm is not null and length_mm > 0
       and width_mm is null
       and height_mm is null
     )
