@@ -10,6 +10,12 @@ type Unit = {
   unit_sequence: number;
   physical_unit_code: string | null;
   status: string;
+  product_model: string | null;
+  die_shape: "box" | "cylinder" | null;
+  length_mm: number | null;
+  width_mm: number | null;
+  height_mm: number | null;
+  diameter_mm: number | null;
   die_models: { control_number: string; description: string } | null;
 };
 type Machine = {
@@ -61,6 +67,15 @@ export default function ProductionManager() {
   const [saving, setSaving] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [specDrafts, setSpecDrafts] = useState<Record<string, {
+    product_model: string;
+    die_shape: "" | "box" | "cylinder";
+    length_mm: string;
+    width_mm: string;
+    height_mm: string;
+    diameter_mm: string;
+  }>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,7 +84,7 @@ export default function ProductionManager() {
       const db = createClient();
       const [unitResult, machineResult, assignmentResult, qcResult] = await Promise.all([
         db.from("die_units")
-          .select("id,die_model_id,unit_sequence,physical_unit_code,status,die_models(control_number,description)")
+          .select("id,die_model_id,unit_sequence,physical_unit_code,status,product_model,die_shape,length_mm,width_mm,height_mm,diameter_mm,die_models(control_number,description)")
           .order("created_at", { ascending: false }),
         db.from("dpcs_machines")
           .select("id,machine_code,machine_status,dpcs_machine_types(machine_type)")
@@ -83,7 +98,16 @@ export default function ProductionManager() {
       ]);
       const failed = [unitResult, machineResult, assignmentResult, qcResult].find((result) => result.error);
       if (failed?.error) throw failed.error;
-      setUnits((unitResult.data ?? []) as unknown as Unit[]);
+      const loadedUnits = (unitResult.data ?? []) as unknown as Unit[];
+      setUnits(loadedUnits);
+      setSpecDrafts(Object.fromEntries(loadedUnits.map((unit) => [unit.id, {
+        product_model: unit.product_model ?? "",
+        die_shape: unit.die_shape ?? "",
+        length_mm: unit.length_mm == null ? "" : String(unit.length_mm),
+        width_mm: unit.width_mm == null ? "" : String(unit.width_mm),
+        height_mm: unit.height_mm == null ? "" : String(unit.height_mm),
+        diameter_mm: unit.diameter_mm == null ? "" : String(unit.diameter_mm),
+      }])));
       setMachines((machineResult.data ?? []) as unknown as Machine[]);
       setAssignments((assignmentResult.data ?? []) as unknown as Assignment[]);
       setQcInspections((qcResult.data ?? []) as QCInspection[]);
@@ -94,7 +118,15 @@ export default function ProductionManager() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const db = createClient();
+    db.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setIsAdmin(false); return; }
+      const { data: profile } = await db.from("profiles").select("role").eq("user_id", user.id).maybeSingle();
+      setIsAdmin(profile?.role === "admin");
+    });
+  }, [load]);
 
   const latestQCByUnit = useMemo(() => {
     const latest = new Map<string, QCInspection>();
@@ -125,6 +157,59 @@ export default function ProductionManager() {
         .filter((item) => item.die_unit_id === reportUnit.id)
         .sort((a, b) => new Date(a.assigned_at).getTime() - new Date(b.assigned_at).getTime())
     : [];
+
+  async function saveSpecifications(unit: Unit) {
+    const draft = specDrafts[unit.id];
+    if (!draft) return;
+    const productModel = draft.product_model.trim();
+    if (!productModel) {
+      setError("Product / Model wajib diisi untuk menyimpan spesifikasi dies.");
+      setNotice("");
+      return;
+    }
+    if (!draft.die_shape) {
+      setError("Pilih bentuk dies: Box atau Cylinder.");
+      setNotice("");
+      return;
+    }
+    const length = Number(draft.length_mm);
+    const width = draft.width_mm === "" ? null : Number(draft.width_mm);
+    const height = draft.height_mm === "" ? null : Number(draft.height_mm);
+    const diameter = draft.diameter_mm === "" ? null : Number(draft.diameter_mm);
+    const validPositive = (value: number | null) => value !== null && Number.isFinite(value) && value > 0;
+    if (draft.die_shape === "box" && (!validPositive(length) || !validPositive(width) || !validPositive(height) || diameter !== null)) {
+      setError("Bentuk Box wajib memiliki panjang, lebar, dan tinggi lebih dari 0 mm; diameter harus kosong.");
+      setNotice("");
+      return;
+    }
+    if (draft.die_shape === "cylinder" && (!validPositive(length) || !validPositive(diameter) || width !== null || height !== null)) {
+      setError("Bentuk Cylinder wajib memiliki diameter dan panjang lebih dari 0 mm; lebar dan tinggi harus kosong.");
+      setNotice("");
+      return;
+    }
+    setSaving(unit.id);
+    setError("");
+    setNotice("");
+    try {
+      const db = createClient();
+      const values = {
+        product_model: productModel,
+        die_shape: draft.die_shape,
+        length_mm: length,
+        width_mm: draft.die_shape === "box" ? width : null,
+        height_mm: draft.die_shape === "box" ? height : null,
+        diameter_mm: draft.die_shape === "cylinder" ? diameter : null,
+      };
+      const { error: updateError } = await db.from("die_units").update(values).eq("id", unit.id);
+      if (updateError) throw updateError;
+      setUnits((current) => current.map((item) => item.id === unit.id ? { ...item, ...values } : item));
+      setNotice("Spesifikasi Workcard berhasil disimpan.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Spesifikasi Workcard gagal disimpan.");
+    } finally {
+      setSaving(null);
+    }
+  }
 
   async function startWork(unit: Unit) {
     const machineId = selectedMachines[unit.id];
@@ -270,6 +355,34 @@ export default function ProductionManager() {
                 <div><p className="eyebrow">CONTROL NUMBER · {unit.die_models?.control_number ?? "—"}</p><h3>{unitLabel}</h3><p>{unit.die_models?.description ?? "Deskripsi dies tidak tersedia"}</p></div>
                 <span>{view === "history" ? "LOLOS QC" : unit.status.replaceAll("_", " ")}</span>
               </div>
+              <article className="production-process-card">
+                <div className="production-process-title">
+                  <div><h4>Spesifikasi Product / Model & Dies</h4><p>Identitas dan ukuran fisik untuk pencocokan repeat order</p></div>
+                </div>
+                {isAdmin ? (
+                  <div className="production-fields">
+                    <label>Product / Model
+                      <input value={specDrafts[unit.id]?.product_model ?? ""} onChange={(event) => setSpecDrafts((current) => ({ ...current, [unit.id]: { ...(current[unit.id] ?? { product_model: "", die_shape: "", length_mm: "", width_mm: "", height_mm: "", diameter_mm: "" }), product_model: event.target.value } }))} placeholder="Masukkan Product / Model" />
+                    </label>
+                    <label>Bentuk dies
+                      <select value={specDrafts[unit.id]?.die_shape ?? ""} onChange={(event) => setSpecDrafts((current) => ({ ...current, [unit.id]: { ...(current[unit.id] ?? { product_model: "", die_shape: "", length_mm: "", width_mm: "", height_mm: "", diameter_mm: "" }), die_shape: event.target.value as "" | "box" | "cylinder", width_mm: event.target.value === "cylinder" ? "" : current[unit.id]?.width_mm ?? "", height_mm: event.target.value === "cylinder" ? "" : current[unit.id]?.height_mm ?? "", diameter_mm: event.target.value === "box" ? "" : current[unit.id]?.diameter_mm ?? "" } }))}>
+                        <option value="">Pilih bentuk</option><option value="box">Box</option><option value="cylinder">Cylinder</option>
+                      </select>
+                    </label>
+                    <label>Panjang (mm)
+                      <input type="number" min="0.01" step="0.01" value={specDrafts[unit.id]?.length_mm ?? ""} onChange={(event) => setSpecDrafts((current) => ({ ...current, [unit.id]: { ...(current[unit.id] ?? { product_model: "", die_shape: "", length_mm: "", width_mm: "", height_mm: "", diameter_mm: "" }), length_mm: event.target.value } }))} />
+                    </label>
+                    {specDrafts[unit.id]?.die_shape === "box" && <>
+                      <label>Lebar (mm)<input type="number" min="0.01" step="0.01" value={specDrafts[unit.id]?.width_mm ?? ""} onChange={(event) => setSpecDrafts((current) => ({ ...current, [unit.id]: { ...current[unit.id], width_mm: event.target.value } }))} /></label>
+                      <label>Tinggi (mm)<input type="number" min="0.01" step="0.01" value={specDrafts[unit.id]?.height_mm ?? ""} onChange={(event) => setSpecDrafts((current) => ({ ...current, [unit.id]: { ...current[unit.id], height_mm: event.target.value } }))} /></label>
+                    </>}
+                    {specDrafts[unit.id]?.die_shape === "cylinder" && <label>Diameter besar (mm)<input type="number" min="0.01" step="0.01" value={specDrafts[unit.id]?.diameter_mm ?? ""} onChange={(event) => setSpecDrafts((current) => ({ ...current, [unit.id]: { ...current[unit.id], diameter_mm: event.target.value } }))} /></label>}
+                    <button type="button" disabled={saving === unit.id} onClick={() => void saveSpecifications(unit)}>{saving === unit.id ? "Menyimpan..." : "Simpan spesifikasi"}</button>
+                  </div>
+                ) : (
+                  <p>{unit.product_model || "Product / Model belum diisi"} · {unit.die_shape === "box" ? `Box · ${unit.length_mm} × ${unit.width_mm} × ${unit.height_mm} mm` : unit.die_shape === "cylinder" ? `Cylinder · Ø${unit.diameter_mm} × ${unit.length_mm} mm` : "Ukuran dies belum diisi"}</p>
+                )}
+              </article>
               <article className="production-process-card">
                 <div className="production-process-title">
                   <div><h4>Hasil QC terakhir</h4><p>{latestQC ? latestQC.result.toUpperCase() + " · " + dateTime(latestQC.created_at) + " · " + latestQC.inspector_name : "Belum ada pemeriksaan QC"}</p></div>
