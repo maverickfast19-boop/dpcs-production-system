@@ -69,8 +69,8 @@ function formatDuration(hours: number) {
 }
 
 function sameWorkcardSpecification(a: Unit, b: Unit) {
-  const productA = (a.product_model ?? "").trim().toLocaleLowerCase("id-ID").replace(/\\s+/g, " ");
-  const productB = (b.product_model ?? "").trim().toLocaleLowerCase("id-ID").replace(/\\s+/g, " ");
+  const productA = (a.product_model ?? "").trim().toLocaleLowerCase("id-ID").replace(/\s+/g, " ");
+  const productB = (b.product_model ?? "").trim().toLocaleLowerCase("id-ID").replace(/\s+/g, " ");
   if (!productA || productA !== productB || !a.die_shape || a.die_shape !== b.die_shape) return false;
   if (a.die_shape === "box") {
     return a.length_mm != null && a.width_mm != null && a.height_mm != null &&
